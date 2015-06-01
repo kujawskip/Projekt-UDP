@@ -13,9 +13,9 @@
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
-#define dataLength 12
+#define dataLength 132
 #define BROADCAST 0xFFFFFFFF
-#define MAXBUF 128
+#define MAXBUF 1024
 #define BACKLOG 3
 
 struct Message
@@ -56,17 +56,57 @@ if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsoc
 		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
 	return socketfd;
 }
+struct Message PrepareMessage(uint32_t id,char type)
+{
+	struct Message m = {.Type = type, .id = id};
+	memset(m.data,0,dataLength);
+}
+void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
+{
+	char MessageBuf[MAXBUF];
+	SerializeMessage(MessageBuf,m);
+	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
+}
+void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
+{
+	char MessageBuf[MAXBUF];
+	socklen_t size;
+	if(TEMP_FAILURE_RETRY(recvfrom(listenfd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
+	DeserializeMessage(MessageBuf,m);
+}
+ssize_t bulk_write(int fd, char *buf, size_t count)
+{
+	int c;
+	size_t len=0;
+	do{
+		c=TEMP_FAILURE_RETRY(write(fd,buf,count));
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}while(count>0);
+	return len ;
+}
+void SeeDirectory(int sendfd,int listenfd,sockaddr_in server,uint32_t id)
+{
+	int i;
+	struct Message m = PrepareMessage(id,'L');
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	bulk_write(stdout,m.data+4,dataLength-4);
+}
 
 void DiscoverAddress(int broadcastfd,int listenfd,int port,struct sockaddr_in* server)
 {
-char MessageBuf[MAXBUF];
-socklen_t size;
+
+
 struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
-struct Message m = {.Type = 'D', .id = 0 };
-memset(m.data,0,dataLength);
-SerializeMessage(MessageBuf,m);
-if(TEMP_FAILURE_RETRY(sendto(broadcastfd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
-if(TEMP_FAILURE_RETRY(recvfrom(listenfd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&server,&size))<0) ERR("read:");
+struct Message m = PrepareMessage(0,'D');
+SendMessage(broadcastfd,m,addr);
+ReceiveMessage(listenfd,&m,server);
+
 
 }
 void usage(char* c) {
