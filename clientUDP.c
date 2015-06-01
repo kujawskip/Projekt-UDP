@@ -36,9 +36,10 @@ uint32_t DeserializeNumber(char* buf)
 }
 void DeserializeMessage(char* buf,struct Message* m)
 {
+	int i=0;
 	m->Type = buf[0];
 	m->id = DeserializeNumber(buf+1);
-	m->data = buf+5;
+	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
 void SerializeMessage(char* buf,struct Message m)
 {
@@ -104,7 +105,7 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 	}while(count>0);
 	return len ;
 }
-void SeeDirectory(int sendfd,int listenfd,sockaddr_in server,uint32_t id)
+void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id)
 {
 	int i;
 	struct Message m = PrepareMessage(id,'L');
