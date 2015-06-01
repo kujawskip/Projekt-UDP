@@ -24,6 +24,22 @@ struct Message
 	uint32_t id;
 	char data[dataLength];
 };
+uint32_t DeserializeNumber(char* buf)
+{
+	uint32_t i,Number = 0;
+	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++) 
+	{
+		((char*)&Number)[i] = buf[i];
+	}
+	return (ntohl(Number));
+
+}
+void DeserializeMessage(char* buf,struct Message* m)
+{
+	m->Type = buf[0];
+	m->id = DeserializeNumber(buf+1);
+	m->data = buf+5;
+}
 void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
@@ -60,6 +76,7 @@ struct Message PrepareMessage(uint32_t id,char type)
 {
 	struct Message m = {.Type = type, .id = id};
 	memset(m.data,0,dataLength);
+	return m;
 }
 void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
@@ -71,7 +88,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
 	socklen_t size;
-	if(TEMP_FAILURE_RETRY(recvfrom(listenfd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
+	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
 	DeserializeMessage(MessageBuf,m);
 }
 ssize_t bulk_write(int fd, char *buf, size_t count)
