@@ -13,7 +13,7 @@
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
-#define dataLength 12;
+#define dataLength 12
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 128
 #define BACKLOG 3
