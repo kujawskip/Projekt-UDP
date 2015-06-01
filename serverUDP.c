@@ -66,7 +66,7 @@ struct Message m = {.Type = 'D', .id = 0 };
 memset(m.data,0,dataLength);
 SerializeMessage(MessageBuf,m);
 if(TEMP_FAILURE_RETRY(sendto(broadcastfd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
-if(TEMP_FAILURE_RETRY(recvfrom(listenfdfd,MessageBuf,sizeof(struct Message),0,&server,&size))<0) ERR("read:");
+if(TEMP_FAILURE_RETRY(recvfrom(listenfd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&server,&size))<0) ERR("read:");
 
 }
 void usage(char* c) {
