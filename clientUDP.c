@@ -14,6 +14,7 @@
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
 #define dataLength 132
+#define Preamble 4
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 1024
 #define BACKLOG 3
@@ -107,38 +108,122 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 }
 void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id)
 {
-	int i;
 	struct Message m = PrepareMessage(id,'L');
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
-	bulk_write(stdout,m.data+4,dataLength-4);
+	bulk_write(1,m.data+Preamble,dataLength-Preamble);
 }
+void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
+{
+	struct Message m = PrepareMessage(id,'D');
+	//Add filename do message data
+	int size;
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	if(m.Type!='D')
+	{
+		///ERR;
+		return;
+	}
+	size = DeserializeNumber(m.data);
+	SendMessage(sendfd,m,server);
+	while(1)
+	{
+		ReceiveMessage(listenfd,&m,&server);
+		if(m.Type == 'F')
+		{
+			break;
+		}
+		//TODO: Write in a file in exact position
+		SendMessage(sendfd,m,server);
+	}
+	//CALC md5 sum of file
+	m = PrepareMessage(id,'F');
+	//m.data = md5sum
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	if(m.Type!='C')
+	{
+		//delete file;
+	}
+	
+	
+}
+void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
+{
+	struct Message m = PrepareMessage(id,'U');
+	int size; //getsize
+	//add filename and size to data;
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	if(m.Type!='C')
+	{
+		///ERR
+		return;
+	}
 
+	///Dziel plik na fragmenty a następnie rozsyłaj
+	while(1)
+	{
+		SendMessage(send,m,server);
+		if(m.Type == 'F')
+		{
+			break;
+		}
+		ReceiveMessage(send,m,server);
+		//TODO: Write in a file in exact position
+	}
+	//CALC md5 sum of file
+	m = PrepareMessage(id,'F');
+	
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	//if(m.data!=md5sum) uncorrect 
+	
+	
+}
+void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
+{
+	struct Message m = PrepareMessage('M',id);
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	if(m.Type == 'C')
+	{
+		fprintf(stdout,"File Deleted\n");
+	}
+	else
+	{
+		fprintf(stdout,"Unable to delete file %s\n",m.data);
+	}
+}
 void DiscoverAddress(int broadcastfd,int listenfd,int port,struct sockaddr_in* server)
 {
 
 
 struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
-struct Message m = PrepareMessage(0,'D');
+struct Message m = PrepareMessage(0,'R');
 SendMessage(broadcastfd,m,addr);
 ReceiveMessage(listenfd,&m,server);
 
 
 }
-void usage(char* c) {
-	fprintf(stderr,"USAGE: %s port Labyrinth client-port\n",c);
+
+void usage(char* c) 
+{
+	fprintf(stderr,"USAGE: %s port\n",c);
 }
 
 int main(int argc,char** argv)
 {
 	int listenfd,broadcastfd;
 	struct sockaddr_in server;
-		if(argc!=2) {
-		usage(argv[0]);
-		return EXIT_FAILURE;
-	}
+		if(argc!=2) 
+		{
+			usage(argv[0]);
+			return EXIT_FAILURE;
+		}
 
 	listenfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
 	broadcastfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,BROADCAST,SO_BROADCAST);
