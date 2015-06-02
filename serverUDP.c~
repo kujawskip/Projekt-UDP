@@ -126,8 +126,5 @@ int main(int argc,char** argv)
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
-		//Prepare list of files in directory
-		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
-return 0;
 		
 }

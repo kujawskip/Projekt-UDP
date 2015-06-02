@@ -172,7 +172,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 		{
 			break;
 		}
-		ReceiveMessage(sendfd,&m,&server);
+		ReceiveMessage(send,&m,&server);
 		//TODO: Write in a file in exact position
 	}
 	//CALC md5 sum of file
