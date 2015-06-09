@@ -13,17 +13,75 @@
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
-#define dataLength 132
+#define dataLength 571
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 1024
 #define BACKLOG 3
-
+#define MAXFILE 1024
+#define MAXDIR 1024
 struct Message
 {
 	char Type;
 	uint32_t id;
 	char data[dataLength];
 };
+struct DirFile
+{
+	char Name[MAXFILE];
+	char Op;
+	int perc;
+}
+struct DirFile files[MAXDIR];
+int DirLen;
+uint32_t GenerateOpID()
+{
+	return 0;
+}
+void LockDirectory()
+{
+}
+void LockFile(int id)
+{
+}
+void UnLockDirectory()
+{
+}
+void UnLockFile(int id)
+{
+	
+}
+void DecodeFile(char* buf,struct DirFile f)
+{
+	switch(f.Op)
+	{
+		case 'D':
+	sprintf(buf,"%s Downloading %d \%\n");
+	return;
+	case 'U':
+	sprintf(buf,"%s Uploading %d \%\n");
+	return;
+	}
+	sprintf(buf,"%s");
+}
+struct Message PrepareMessage(uint32_t id,char type)
+{
+	struct Message m = {.Type = type, .id = id};
+	memset(m.data,0,dataLength);
+	return m;
+}
+void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
+{
+	char MessageBuf[MAXBUF];
+	SerializeMessage(MessageBuf,m);
+	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
+}
+void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
+{
+	char MessageBuf[MAXBUF];
+	socklen_t size;
+	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
+	DeserializeMessage(MessageBuf,m);
+}
 uint32_t DeserializeNumber(char* buf)
 {
 	uint32_t i,Number = 0;
@@ -94,23 +152,122 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 	while(count>0);
 	return len ;
 }
-void HandleMessage(struct Message m,int sendfd,int listenfd)
+
+void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
+{
+	char* File = m.data;
+
+	m = PrepareMessage(GenerateOpID(),'D');
+		//getfile size and put it into data
+	SendMessage(sendfd,m,address);
+	ReceiveMessage(listenfd,&m,&address);
+	///Dziel plik na fragmenty a następnie rozsyłaj
+	while(1)
+	{
+		SendMessage(sendfd,m,address);
+		if(m.Type == 'F')
+		{
+			break;
+		}
+		ReceiveMessage(sendfd,&m,&address);
+		//TODO: Write in a file in exact position
+	}
+	//CALC md5 sum of file
+	m = PrepareMessage(id,'F');
+	
+	SendMessage(sendfd,m,address);
+	
+	//if(m.data!=md5sum) uncorrect
+	ReceiveMessage(listenfd,&m,&address);
+}
+void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
+{
+	struct Message m = PrepareMessage(id,'D');
+	//Add filename do message data
+	int size;
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	if(m.Type!='C')
+	{
+		///ERR;
+		return;
+	}
+	size = DeserializeNumber(m.data);
+	SendMessage(sendfd,m,server);
+	while(1)
+	{
+		ReceiveMessage(listenfd,&m,&server);
+		if(m.Type == 'F')
+		{
+			break;
+		}
+		//TODO: Write in a file in exact position
+		SendMessage(sendfd,m,server);
+	}
+	//CALC md5 sum of file
+	m = PrepareMessage(id,'F');
+	//m.data = md5sum
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
+	if(m.Type!='C')
+	{
+		//delete file;
+	}
+}
+
+void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
+{
+	char* name = m.data;
+	int i;
+	LockDirectory();
+	
+	for(i=0;i<DirLen;i++)
+	{
+		if(0==strcmp(name,DirFile[i].name))
+		{
+			int j;
+			//Delete file from disk
+			if(DirFile[i].Op != 'N')
+			{
+				UnLockDirectory();
+				break;
+			}
+			for(j=i;j<DirLen-1;j++)
+			{
+				DirFile[j]=DirFile[j+1];
+			}
+			DirLen--;
+			m = PrepareMessage('C',m.id);
+			
+			UnLockDirectory();
+			return;
+		}
+	}
+	m = PrepareMessage('E',m.id);
+	SendMessage(sendfd,m,address);
+}
+void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
+{
+	
+}
+
+void HandleMessage(struct Message m,int sendfd,int listenfd,struct sockaddr_in address)
 {
 	if(m.Type=='D')
 	{
-		DownloadFile(sendfd,listenfd,m);
+		DownloadFile(sendfd,listenfd,m,address);
 	}
 	else if(m.Type=='U')
 	{
-		UploadFile(sendfd,listenfd,m);
+		UploadFile(sendfd,listenfd,m,address);
 	}
 	else if(m.Type=='M')
 	{
-		DeleteFile(sendfd,listenfd,m);
+		DeleteFile(sendfd,listenfd,m,address);
 	}
 	else if(m.Type=='L')
 	{
-		ListDirectory(sendfd,listenfd,m);
+		ListDirectory(sendfd,listenfd,m,address);
 	}
 }
 void usage(char* c)

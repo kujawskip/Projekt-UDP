@@ -13,7 +13,7 @@
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
-#define dataLength 132
+#define dataLength 571
 #define Preamble 4
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 1024
@@ -200,14 +200,10 @@ void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 }
 void DiscoverAddress(int broadcastfd,int listenfd,int port,struct sockaddr_in* server)
 {
-
-
-struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
-struct Message m = PrepareMessage(0,'R');
-SendMessage(broadcastfd,m,addr);
-ReceiveMessage(listenfd,&m,server);
-
-
+	struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
+	struct Message m = PrepareMessage(0,'R');
+	SendMessage(broadcastfd,m,addr);
+	ReceiveMessage(listenfd,&m,server);
 }
 
 void usage(char* c) 
