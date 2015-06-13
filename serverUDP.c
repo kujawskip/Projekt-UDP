@@ -289,7 +289,7 @@ int main(int argc,char** argv)
 		struct dirent* dirStruct;
 		DIR* directory;
 		struct Message* m;
-		m = (struct Message*)malloc(sizeof(struct Message));
+		
 		if(argc!=3)
 		{
 			usage(argv[0]);
@@ -300,6 +300,7 @@ int main(int argc,char** argv)
 		{
 			ERR("Can't open directory");
 		}
+		m = ((struct Message)*)malloc(sizeof(struct Message));
 		memset(m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
