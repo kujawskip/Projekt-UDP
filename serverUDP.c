@@ -113,7 +113,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
-	socklen_t size;
+	socklen_t size = sizeof(sockaddr_in);
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
 	DeserializeMessage(MessageBuf,m);
 }
