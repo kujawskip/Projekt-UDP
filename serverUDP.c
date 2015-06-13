@@ -84,7 +84,7 @@ uint32_t DeserializeNumber(char* buf)
 void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
-	m->Kind = buf[0];
+	m->Kind = 'A';//buf[0];
 	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
