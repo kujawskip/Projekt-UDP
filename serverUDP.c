@@ -114,8 +114,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
-	fprintf(stderr,"%p DEBUG
-",(void*)m);
+	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
@@ -310,8 +309,7 @@ int main(int argc,char** argv)
 		{
 			ERR("Malloc:");
 		}
-		fprintf(stderr,"%p DEBUG
-",(void*)m);
+		fprintf(stderr,"%p DEBUG",(void*)m);
 		memset(m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
