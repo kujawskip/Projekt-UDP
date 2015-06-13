@@ -115,7 +115,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 	char MessageBuf[MAXBUF];
 	socklen_t size = sizeof(struct sockaddr_in);
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
-	fprintf(stderr,"DEBUG: ReceivedMessage , preparing for serialization\n");
+	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	DeserializeMessage(MessageBuf,m);
 }
 
