@@ -65,7 +65,7 @@ int makesocket(int type,int flag)
 	if(socketfd<0) ERR("socket:");
 	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t))) ERR("setsockopt");
 	if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsockopt");
-
+	return socketfd;
 }
 int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 	struct sockaddr_in addr;
