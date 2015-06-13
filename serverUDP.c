@@ -10,6 +10,7 @@
 #include <netinet/in.h>
 #include <signal.h>
 #include <netdb.h>
+#include <dirent.h>
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
@@ -21,7 +22,7 @@
 #define MAXDIR 1024
 struct Message
 {
-	char Type;
+	char Kind;
 	uint32_t id;
 	char data[dataLength];
 };
@@ -30,7 +31,7 @@ struct DirFile
 	char Name[MAXFILE];
 	char Op;
 	int perc;
-}
+};
 struct DirFile files[MAXDIR];
 int DirLen;
 uint32_t GenerateOpID()
@@ -50,37 +51,25 @@ void UnLockFile(int id)
 {
 	
 }
+struct Message PrepareMessage(uint32_t id,char type)
+{
+	struct Message m = {.Kind = type, .id = id};
+	memset(m.data,0,dataLength);
+	return m;
+}
+
 void DecodeFile(char* buf,struct DirFile f)
 {
 	switch(f.Op)
 	{
 		case 'D':
-	sprintf(buf,"%s Downloading %d \%\n");
+	sprintf(buf,"%s Downloading %d/100 \n",f.Name,f.perc);
 	return;
 	case 'U':
-	sprintf(buf,"%s Uploading %d \%\n");
+	sprintf(buf,"%s Uploading %d/100 \n",f.Name,f.perc);
 	return;
 	}
-	sprintf(buf,"%s");
-}
-struct Message PrepareMessage(uint32_t id,char type)
-{
-	struct Message m = {.Type = type, .id = id};
-	memset(m.data,0,dataLength);
-	return m;
-}
-void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
-{
-	char MessageBuf[MAXBUF];
-	SerializeMessage(MessageBuf,m);
-	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
-}
-void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
-{
-	char MessageBuf[MAXBUF];
-	socklen_t size;
-	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
-	DeserializeMessage(MessageBuf,m);
+	sprintf(buf,"%s",f.Name);
 }
 uint32_t DeserializeNumber(char* buf)
 {
@@ -95,7 +84,7 @@ uint32_t DeserializeNumber(char* buf)
 void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
-	m->Type = buf[0];
+	m->Kind = buf[0];
 	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
@@ -103,7 +92,7 @@ void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
-	buf[0] = m.Type;
+	buf[0] = m.Kind;
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
 		buf[i+1] = ((char*)&Number)[i];
@@ -115,6 +104,20 @@ void SerializeMessage(char* buf,struct Message m)
 	
 	
 }
+void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
+{
+	char MessageBuf[MAXBUF];
+	SerializeMessage(MessageBuf,m);
+	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
+}
+void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
+{
+	char MessageBuf[MAXBUF];
+	socklen_t size;
+	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)&addr,&size))<0) ERR("read:");
+	DeserializeMessage(MessageBuf,m);
+}
+
 int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 	struct sockaddr_in addr;
 	int socketfd,t=1;
@@ -130,12 +133,6 @@ int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 	if(SOCK_STREAM==type)
 		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
 	return socketfd;
-}
-struct Message PrepareMessage(uint32_t id,char type)
-{
-	struct Message m = {.Type = type, .id = id};
-	memset(m.data,0,dataLength);
-	return m;
 }
 ssize_t bulk_write(int fd, char *buf, size_t count)
 {
@@ -165,7 +162,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	while(1)
 	{
 		SendMessage(sendfd,m,address);
-		if(m.Type == 'F')
+		if(m.Kind == 'F')
 		{
 			break;
 		}
@@ -173,7 +170,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 		//TODO: Write in a file in exact position
 	}
 	//CALC md5 sum of file
-	m = PrepareMessage(id,'F');
+	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,address);
 	
@@ -182,34 +179,34 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 }
 void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	struct Message m = PrepareMessage(id,'D');
+	m = PrepareMessage(GenerateOpID(),'D');
 	//Add filename do message data
 	int size;
-	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
-	if(m.Type!='C')
+	SendMessage(sendfd,m,address);
+	ReceiveMessage(listenfd,&m,&address);
+	if(m.Kind!='C')
 	{
 		///ERR;
 		return;
 	}
 	size = DeserializeNumber(m.data);
-	SendMessage(sendfd,m,server);
+	SendMessage(sendfd,m,address);
 	while(1)
 	{
-		ReceiveMessage(listenfd,&m,&server);
-		if(m.Type == 'F')
+		ReceiveMessage(listenfd,&m,&address);
+		if(m.Kind == 'F')
 		{
 			break;
 		}
 		//TODO: Write in a file in exact position
-		SendMessage(sendfd,m,server);
+		SendMessage(sendfd,m,address);
 	}
 	//CALC md5 sum of file
-	m = PrepareMessage(id,'F');
+	m = PrepareMessage(m.id,'F');
 	//m.data = md5sum
-	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
-	if(m.Type!='C')
+	SendMessage(sendfd,m,address);
+	ReceiveMessage(listenfd,&m,&address);
+	if(m.Kind!='C')
 	{
 		//delete file;
 	}
@@ -223,18 +220,18 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	
 	for(i=0;i<DirLen;i++)
 	{
-		if(0==strcmp(name,DirFile[i].name))
+		if(0==strcmp(name,files[i].Name))
 		{
 			int j;
 			//Delete file from disk
-			if(DirFile[i].Op != 'N')
+			if(files[i].Op != 'N')
 			{
 				UnLockDirectory();
 				break;
 			}
 			for(j=i;j<DirLen-1;j++)
 			{
-				DirFile[j]=DirFile[j+1];
+				files[j]=files[j+1];
 			}
 			DirLen--;
 			m = PrepareMessage('C',m.id);
@@ -253,19 +250,19 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 
 void HandleMessage(struct Message m,int sendfd,int listenfd,struct sockaddr_in address)
 {
-	if(m.Type=='D')
+	if(m.Kind=='D')
 	{
 		DownloadFile(sendfd,listenfd,m,address);
 	}
-	else if(m.Type=='U')
+	else if(m.Kind=='U')
 	{
 		UploadFile(sendfd,listenfd,m,address);
 	}
-	else if(m.Type=='M')
+	else if(m.Kind=='M')
 	{
 		DeleteFile(sendfd,listenfd,m,address);
 	}
-	else if(m.Type=='L')
+	else if(m.Kind=='L')
 	{
 		ListDirectory(sendfd,listenfd,m,address);
 	}
@@ -277,14 +274,40 @@ void usage(char* c)
 
 int main(int argc,char** argv)
 {
-		int listenfd;
+		int listenfd,sendfd,i;
+		struct sockaddr_in client;
+		struct Message m;
+		struct dirent* dirStruct;
+		DIR* directory;
 		if(argc!=3)
 		{
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
-		//Prepare list of files in directory
-		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
+		directory = opendir(argv[2]);
+		if(directory == NULL)
+		{
+			ERR("Can't open directory");
+		}
+		while(1)
+		{
+		dirStruct = readdir(directory);
+			if(dirStruct == NULL)
+			{
+				break;
+			}
+		strcpy(files[DirLen].Name,dirStruct->d_name);
+		files[DirLen].Op='N';
+		files[DirLen].perc=0;
+		DirLen++;
+		}
+		fprintf(stdout,"Prepared Directory List\n");
+			//Prepare list of files in directory
+		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
+		ReceiveMessage(listenfd,&m,&client);
+		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,client.sin_addr.s_addr,0);
+		SendMessage(sendfd,m,client);
+		
 return 0;
 		
 }

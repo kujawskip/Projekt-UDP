@@ -21,7 +21,7 @@
 
 struct Message
 {
-	char Type;
+	char Kind;
 	uint32_t id;
 	char data[dataLength];
 };
@@ -38,7 +38,7 @@ uint32_t DeserializeNumber(char* buf)
 void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
-	m->Type = buf[0];
+	m->Kind = buf[0];
 	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
@@ -46,7 +46,7 @@ void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
-	buf[0] = m.Type;
+	buf[0] = m.Kind;
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
 		buf[i+1] = ((char*)&Number)[i];
@@ -76,7 +76,7 @@ if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsoc
 }
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Type = type, .id = id};
+	struct Message m = {.Kind = type, .id = id};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -122,7 +122,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	int size;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
-	if(m.Type!='D')
+	if(m.Kind!='D')
 	{
 		///ERR;
 		return;
@@ -132,7 +132,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	while(1)
 	{
 		ReceiveMessage(listenfd,&m,&server);
-		if(m.Type == 'F')
+		if(m.Kind == 'F')
 		{
 			break;
 		}
@@ -144,7 +144,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	//m.data = md5sum
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
-	if(m.Type!='C')
+	if(m.Kind!='C')
 	{
 		//delete file;
 	}
@@ -158,7 +158,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 	//add filename and size to data;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
-	if(m.Type!='C')
+	if(m.Kind!='C')
 	{
 		///ERR
 		return;
@@ -168,7 +168,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 	while(1)
 	{
 		SendMessage(sendfd,m,server);
-		if(m.Type == 'F')
+		if(m.Kind == 'F')
 		{
 			break;
 		}
@@ -189,7 +189,7 @@ void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 	struct Message m = PrepareMessage('M',id);
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
-	if(m.Type == 'C')
+	if(m.Kind == 'C')
 	{
 		fprintf(stdout,"File Deleted\n");
 	}
@@ -224,6 +224,7 @@ int main(int argc,char** argv)
 	listenfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
 	broadcastfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,BROADCAST,SO_BROADCAST);
 	DiscoverAddress(broadcastfd,listenfd,atoi(argv[1]),&server);
+	fprintf(stdout,"%ld \n",(long int)server.sin_addr.s_addr);
 	return 0;
 
 }
