@@ -271,7 +271,7 @@ void usage(char* c)
 {
 	fprintf(stderr,"USAGE: %s port directory\n",c);
 }
-void print_ip(long int ip)
+void print_ip(unsigned long int ip)
 {
     unsigned char bytes[4];
     bytes[0] = ip & 0xFF;
@@ -315,7 +315,7 @@ int main(int argc,char** argv)
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		ReceiveMessage(listenfd,&m,&client);
 		fprintf(stdout,"%d %c %s\n",m.id,m.Kind,m.data);
-		print_ip((long int)client.sin_addr.s_addr);
+		print_ip((unsigned long int)client.sin_addr.s_addr);
 		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
 		SendMessage(sendfd,m,client);
 		
