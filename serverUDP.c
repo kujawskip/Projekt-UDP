@@ -288,8 +288,8 @@ int main(int argc,char** argv)
 		
 		struct dirent* dirStruct;
 		DIR* directory;
-		struct Message m;
-		&m = (struct Message*)malloc(sizeof(struct Message));
+		struct Message* m;
+		m = (struct Message*)malloc(sizeof(struct Message));
 		if(argc!=3)
 		{
 			usage(argv[0]);
@@ -300,7 +300,7 @@ int main(int argc,char** argv)
 		{
 			ERR("Can't open directory");
 		}
-		memset(&m,0,sizeof(struct Message));
+		memset(m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
 		{
@@ -317,11 +317,11 @@ int main(int argc,char** argv)
 		fprintf(stdout,"Prepared Directory List\n");
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
-		ReceiveMessage(listenfd,&m,&client);
-		fprintf(stdout,"%d %c %s\n",m.id,m.Kind,m.data);
+		ReceiveMessage(listenfd,m,&client);
+		fprintf(stdout,"%d %c %s\n",m->id,m->Kind,m->data);
 		print_ip((unsigned long int)client.sin_addr.s_addr);
 		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
-		SendMessage(sendfd,m,client);
+		SendMessage(sendfd,*m,client);
 		free(&m);
 		
 return 0;
