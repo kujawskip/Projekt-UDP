@@ -228,7 +228,7 @@ int main(int argc,char** argv)
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
-
+	memset(&server,0,sizeof(sockaddr_in));
 	listenfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
 	broadcastfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,BROADCAST,SO_BROADCAST);
 	DiscoverAddress(broadcastfd,listenfd,atoi(argv[1]),&server);

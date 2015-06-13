@@ -297,6 +297,7 @@ int main(int argc,char** argv)
 		{
 			ERR("Can't open directory");
 		}
+		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
 		{
 		dirStruct = readdir(directory);
