@@ -300,7 +300,7 @@ int main(int argc,char** argv)
 		{
 			ERR("Can't open directory");
 		}
-		m = ((struct Message)*)malloc(sizeof(struct Message));
+		m = (struct Message*)malloc(sizeof(struct Message));
 		memset(m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
@@ -323,7 +323,7 @@ int main(int argc,char** argv)
 		print_ip((unsigned long int)client.sin_addr.s_addr);
 		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
 		SendMessage(sendfd,*m,client);
-		free(&m);
+		free(m);
 		
 return 0;
 		
