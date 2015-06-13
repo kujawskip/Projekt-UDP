@@ -305,7 +305,7 @@ int main(int argc,char** argv)
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		ReceiveMessage(listenfd,&m,&client);
-		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,client.sin_addr.s_addr,0);
+		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ltonh(client.sin_addr.s_addr),0);
 		SendMessage(sendfd,m,client);
 		
 return 0;
