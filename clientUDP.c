@@ -60,7 +60,7 @@ void SerializeMessage(char* buf,struct Message m)
 }
 int makesocket(int type,int flag)
 {
-	int socketfd;
+	int socketfd,t=1;
 	socketfd = socket(PF_INET,type,0);
 	if(socketfd<0) ERR("socket:");
 	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t))) ERR("setsockopt");
@@ -69,7 +69,7 @@ int makesocket(int type,int flag)
 }
 int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 	struct sockaddr_in addr;
-	int t=1;
+	
 	int socketfd = makesocket(type,flag);
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
