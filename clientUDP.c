@@ -210,7 +210,15 @@ void usage(char* c)
 {
 	fprintf(stderr,"USAGE: %s port\n",c);
 }
-
+void print_ip(long int ip)
+{
+    unsigned char bytes[4];
+    bytes[0] = ip & 0xFF;
+    bytes[1] = (ip >> 8) & 0xFF;
+    bytes[2] = (ip >> 16) & 0xFF;
+    bytes[3] = (ip >> 24) & 0xFF;	
+    printf("%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);        
+}
 int main(int argc,char** argv)
 {
 	int listenfd,broadcastfd;
@@ -224,7 +232,7 @@ int main(int argc,char** argv)
 	listenfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
 	broadcastfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,BROADCAST,SO_BROADCAST);
 	DiscoverAddress(broadcastfd,listenfd,atoi(argv[1]),&server);
-	fprintf(stdout,"%ld \n",(long int)server.sin_addr.s_addr);
+	print_ip((long int)server.sin_addr.s_addr);
 	return 0;
 
 }

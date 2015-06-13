@@ -271,7 +271,15 @@ void usage(char* c)
 {
 	fprintf(stderr,"USAGE: %s port directory\n",c);
 }
-
+void print_ip(long int ip)
+{
+    unsigned char bytes[4];
+    bytes[0] = ip & 0xFF;
+    bytes[1] = (ip >> 8) & 0xFF;
+    bytes[2] = (ip >> 16) & 0xFF;
+    bytes[3] = (ip >> 24) & 0xFF;	
+    printf("%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);        
+}
 int main(int argc,char** argv)
 {
 		int listenfd,sendfd,i;
@@ -305,7 +313,7 @@ int main(int argc,char** argv)
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		ReceiveMessage(listenfd,&m,&client);
-		fprintf(stdout,"%ld \n",(long int)client.sin_addr.s_addr);
+		print_ip((long int)client.sin_addr.s_addr);
 		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
 		SendMessage(sendfd,m,client);
 		
