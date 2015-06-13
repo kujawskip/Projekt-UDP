@@ -285,9 +285,10 @@ int main(int argc,char** argv)
 {
 		int listenfd,sendfd,i;
 		struct sockaddr_in client;
-		struct Message m;
+		
 		struct dirent* dirStruct;
 		DIR* directory;
+		struct Message m = {.Kind='O',.id='0'};
 		if(argc!=3)
 		{
 			usage(argv[0]);

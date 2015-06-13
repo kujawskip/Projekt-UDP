@@ -1,6 +1,6 @@
 
 all: server client
-debug: debugserver debugclient clean
+debug: debugserver debugclient
 debugserver: serverUDP.c
 	gcc -Wall -g serverUDP.c -o server
 debugclient: clientUDP.c
