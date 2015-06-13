@@ -89,6 +89,7 @@ struct Message PrepareMessage(uint32_t id,char type)
 void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
 	char MessageBuf[MAXBUF];
+	memset(MessageBuf,0,MAXBUF);
 	SerializeMessage(MessageBuf,m);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
 }
