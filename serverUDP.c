@@ -288,7 +288,8 @@ int main(int argc,char** argv)
 		
 		struct dirent* dirStruct;
 		DIR* directory;
-		struct Message m = {.Kind='O',.id='0'};
+		struct Message m;
+		&m = (struct Message*)malloc(sizeof(struct Message));
 		if(argc!=3)
 		{
 			usage(argv[0]);
@@ -321,6 +322,7 @@ int main(int argc,char** argv)
 		print_ip((unsigned long int)client.sin_addr.s_addr);
 		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
 		SendMessage(sendfd,m,client);
+		free(&m);
 		
 return 0;
 		
