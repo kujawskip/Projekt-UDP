@@ -90,7 +90,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
 	char MessageBuf[MAXBUF];
 	SerializeMessage(MessageBuf,m);
-	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(sockaddr_in)))<0) ERR("send:");	
+	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
