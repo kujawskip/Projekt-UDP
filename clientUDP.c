@@ -58,17 +58,23 @@ void SerializeMessage(char* buf,struct Message m)
 	
 	
 }
-int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
-	struct sockaddr_in addr;
-	int socketfd,t=1;
+int makesocket(int type,int flag)
+{
+	int socketfd;
 	socketfd = socket(PF_INET,type,0);
 	if(socketfd<0) ERR("socket:");
+	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t))) ERR("setsockopt");
+	if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsockopt");
+
+}
+int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
+	struct sockaddr_in addr;
+	int t=1;
+	int socketfd = makesocket(type,flag);
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = htonl(addres);
-	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t))) ERR("setsockopt");
-if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsockopt");
 	if(bind(socketfd,(struct sockaddr*) &addr,sizeof(addr)) < 0)  ERR("bind");
 	if(SOCK_STREAM==type)
 		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
@@ -230,7 +236,7 @@ int main(int argc,char** argv)
 		}
 	memset(&server,0,sizeof(struct sockaddr_in));
 	listenfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
-	broadcastfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_BROADCAST,SO_BROADCAST);
+	broadcastfd=
 	DiscoverAddress(broadcastfd,listenfd,atoi(argv[1]),&server);
 	print_ip((long int)server.sin_addr.s_addr);
 	return 0;
