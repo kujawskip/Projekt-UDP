@@ -337,7 +337,7 @@ int main(int argc,char** argv)
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		sendfd = makesocket(SOCK_DGRAM,0);
-		ReceiveMessage(listenfd,m,&client);
+		ReceiveMessage(listenfd,&m,&client);
 		fprintf(stdout,"%d %c %s\n",m.id,m.Kind,m.data);
 		print_ip((unsigned long int)client.sin_addr.s_addr);
 		sendfd = bind_inet_socket(DeserializeNumber(m.data),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
