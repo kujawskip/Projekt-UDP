@@ -20,12 +20,9 @@
 #define BACKLOG 3
 #define MAXFILE 1024
 #define MAXDIR 1024
-struct Message
-{
-	char Kind;
-	uint32_t id;
-	char data[dataLength];
-};
+#define CORRECT 'C'
+#define SENDER 'S'
+
 struct DirFile
 {
 	char Name[MAXFILE];
@@ -51,12 +48,7 @@ void UnLockFile(int id)
 {
 	
 }
-struct Message PrepareMessage(uint32_t id,char type)
-{
-	struct Message m = {.Kind = type, .id = id};
-	memset(m.data,0,dataLength);
-	return m;
-}
+
 
 void DecodeFile(char* buf,struct DirFile f)
 {
@@ -71,6 +63,19 @@ void DecodeFile(char* buf,struct DirFile f)
 	}
 	sprintf(buf,"%s",f.Name);
 }
+struct Message
+{
+	char Kind;
+	uint32_t id;
+	
+	char data[dataLength];
+};
+struct Message PrepareMessage(uint32_t id,char type)
+{
+	struct Message m = {.Kind = type, .id = id,.direction='C'};
+	memset(m.data,0,dataLength);
+	return m;
+}
 uint32_t DeserializeNumber(char* buf)
 {
 	uint32_t i,Number = 0;
@@ -84,8 +89,9 @@ uint32_t DeserializeNumber(char* buf)
 void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
-	m->Kind = 'A';//buf[0];
-	m->id = DeserializeNumber(buf+1);
+	m->Kind = buf[0];
+	m->direction = buf[1];
+	m->id = DeserializeNumber(buf+2);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
 void SerializeMessage(char* buf,struct Message m)
@@ -93,13 +99,14 @@ void SerializeMessage(char* buf,struct Message m)
 	int i;
 	uint32_t Number = htonl(m.id);
 	buf[0] = m.Kind;
+	buf[1] = m.Direction;
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
-		buf[i+1] = ((char*)&Number)[i];
+		buf[i+2] = ((char*)&Number)[i];
 	}	
 	for(i=0;i<dataLength;i++)
 	{
-		buf[i+1+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
+		buf[i+2+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
 	
 	
@@ -123,17 +130,23 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 	DeserializeMessage(MessageBuf,m);
 }
 
-int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
-	struct sockaddr_in addr;
+int makesocket(int type,int flag)
+{
 	int socketfd,t=1;
 	socketfd = socket(PF_INET,type,0);
 	if(socketfd<0) ERR("socket:");
+	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t))) ERR("setsockopt");
+	if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsockopt");
+	return socketfd;
+}
+int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
+	struct sockaddr_in addr;
+	
+	int socketfd = makesocket(type,flag);
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(port);
 	addr.sin_addr.s_addr = htonl(addres);
-	if (setsockopt(socketfd, SOL_SOCKET, SO_REUSEADDR,&t, sizeof(t))) ERR("setsockopt");
-	if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsockopt");
 	if(bind(socketfd,(struct sockaddr*) &addr,sizeof(addr)) < 0)  ERR("bind");
 	if(SOCK_STREAM==type)
 		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
@@ -292,7 +305,7 @@ int main(int argc,char** argv)
 		
 		struct dirent* dirStruct;
 		DIR* directory;
-		struct Message* m;
+		struct Message m;
 		
 		if(argc!=3)
 		{
@@ -304,13 +317,9 @@ int main(int argc,char** argv)
 		{
 			ERR("Can't open directory");
 		}
-		m = (struct Message*)malloc(sizeof(struct Message));
-		if(m==NULL)
-		{
-			ERR("Malloc:");
-		}
-		fprintf(stderr,"%p DEBUG",(void*)m);
-		memset(m,0,sizeof(struct Message));
+		
+	
+		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
 		{
@@ -327,12 +336,13 @@ int main(int argc,char** argv)
 		fprintf(stdout,"Prepared Directory List\n");
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
+		sendfd = makesocket(SOCK_DGRAM,0);
 		ReceiveMessage(listenfd,m,&client);
-		fprintf(stdout,"%d %c %s\n",m->id,m->Kind,m->data);
+		fprintf(stdout,"%d %c %s\n",m.id,m.Kind,m.data);
 		print_ip((unsigned long int)client.sin_addr.s_addr);
-		sendfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
-		SendMessage(sendfd,*m,client);
-		free(m);
+		sendfd = bind_inet_socket(DeserializeNumber(m.data),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
+		SendMessage(sendfd,m,client);
+	
 		
 return 0;
 		

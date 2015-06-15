@@ -18,13 +18,21 @@
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 1024
 #define BACKLOG 3
-
+#define CORRECT 'S'
+#define SENDER 'C'
 struct Message
 {
 	char Kind;
 	uint32_t id;
+	
 	char data[dataLength];
 };
+struct Message PrepareMessage(uint32_t id,char type)
+{
+	struct Message m = {.Kind = type, .id = id,.direction='C'};
+	memset(m.data,0,dataLength);
+	return m;
+}
 uint32_t DeserializeNumber(char* buf)
 {
 	uint32_t i,Number = 0;
@@ -39,7 +47,8 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	m->id = DeserializeNumber(buf+1);
+	m->direction = buf[1];
+	m->id = DeserializeNumber(buf+2);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
 void SerializeMessage(char* buf,struct Message m)
@@ -47,13 +56,14 @@ void SerializeMessage(char* buf,struct Message m)
 	int i;
 	uint32_t Number = htonl(m.id);
 	buf[0] = m.Kind;
+	buf[1] = m.Direction;
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
-		buf[i+1] = ((char*)&Number)[i];
+		buf[i+2] = ((char*)&Number)[i];
 	}	
 	for(i=0;i<dataLength;i++)
 	{
-		buf[i+1+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
+		buf[i+2+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
 	
 	
@@ -80,12 +90,7 @@ int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
 	return socketfd;
 }
-struct Message PrepareMessage(uint32_t id,char type)
-{
-	struct Message m = {.Kind = type, .id = id};
-	memset(m.data,0,dataLength);
-	return m;
-}
+
 void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
 	char MessageBuf[MAXBUF];
@@ -208,12 +213,14 @@ void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 		fprintf(stdout,"Unable to delete file %s\n",m.data);
 	}
 }
-void DiscoverAddress(int broadcastfd,int listenfd,int port,struct sockaddr_in* server)
+int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 {
 	struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
 	struct Message m = PrepareMessage(0,'R');
 	SendMessage(broadcastfd,m,addr);
+	int listenfd = bind_inet_socket(0,SOCK_DGRAM,INADDR_ANY,0);
 	ReceiveMessage(listenfd,&m,server);
+	return listenfd;
 }
 
 void usage(char* c) 
@@ -239,9 +246,9 @@ int main(int argc,char** argv)
 			return EXIT_FAILURE;
 		}
 	memset(&server,0,sizeof(struct sockaddr_in));
-	listenfd=bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
+	
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
-	DiscoverAddress(broadcastfd,listenfd,atoi(argv[1]),&server);
+	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
 	print_ip((long int)server.sin_addr.s_addr);
 	return 0;
 
