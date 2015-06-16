@@ -66,7 +66,12 @@ struct Message
 struct Message PrepareMessage(uint32_t id,char type)
 {
 	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
+	
 	memset(m.data,0,dataLength);
+	if(m.responseport==0)
+	{
+		fprintf(stderr,"DEBUG: response port = 0\n");
+	}
 	return m;
 }
 void SerializeNumber(int number,char* buf)

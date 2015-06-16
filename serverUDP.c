@@ -22,8 +22,6 @@
 #define BACKLOG 3
 #define MAXFILE 1024
 #define MAXDIR 1024
-#define CORRECT 'C'
-#define SENDER 'S'
 
 struct DirFile
 {
@@ -81,6 +79,10 @@ struct Message PrepareMessage(uint32_t id,char type)
 {
 	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
 	memset(m.data,0,dataLength);
+	if(m.responseport==0)
+	{
+		fprintf(stderr,"DEBUG: response port = 0\n");
+	}
 	return m;
 }
 void SerializeNumber(int number,char* buf)
