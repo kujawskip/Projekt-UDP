@@ -65,7 +65,7 @@ struct Message
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id,.responseport=htons(listenport)};
+	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -104,7 +104,7 @@ void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
-	uint32_t port = htons(m.responseport);
+	uint32_t port = m.responseport;
 	buf[0] = m.Kind;
 	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
@@ -204,7 +204,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(m->id==0)
 		{
 			if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
-			addr->sin_port = htons(m->responseport);;
+			addr->sin_port = m->responseport;
 			WakeMessage();
 			return;
 		}
@@ -237,7 +237,7 @@ if(!passsecurity)	WaitOnMessage();
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-			addr->sin_port = htons(m->responseport);;
+			addr->sin_port = m->responseport;
 		if(!passsecurity) 
 {
 fprintf(stderr,"Waking the gate\n");

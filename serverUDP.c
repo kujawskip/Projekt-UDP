@@ -79,7 +79,7 @@ struct Message
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id,.responseport=htons(listenport)};
+	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -191,7 +191,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Changing port from %d to %d\n",addr->sin_port,m->responseport);
-		addr->sin_port = htons(m->responseport);
+		addr->sin_port = m->responseport;
 
 		WakeMessage();
 		return;
@@ -225,7 +225,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		addr->sin_port = htons(m->responseport);
+		addr->sin_port = m->responseport;
 		WakeMessage();
 		WakeGate();
 		return;
@@ -554,7 +554,7 @@ int main(int argc,char** argv)
 		WaitOnSuper();
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
-		listenport = atoi(argv[0]);
+		listenport = htons(atoi(argv[0]));
 		while(1)
 		{
 			dirStruct = readdir(directory);
