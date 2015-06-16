@@ -140,11 +140,11 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id
 	ReceiveMessage(listenfd,&m,&server);
 	bulk_write(1,m.data+Preamble,dataLength-Preamble);
 }
-void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
+void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 {
 	
 	char File[dataLength];
-	
+	struct Message m;
 	FILE* F;
 	int i;
 	uint32_t chunk;
@@ -183,7 +183,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	
 	
 }
-void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
+void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 {
 	struct Message m = PrepareMessage(id,'U');
 	int size; //getsize
@@ -238,7 +238,7 @@ void DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	struct Message m = PrepareMessage(0,'R');
 	int listenfd = bind_inet_socket(0,SOCK_DGRAM,INADDR_ANY,0);
 	getsockname(listenfd,&temp,&size);
-	SerializeNumber(m.data,ntohs(temp.sin_port));
+	SerializeNumber(ntohs(temp.sin_port),m.data);
 	SendMessage(broadcastfd,m,addr);
 	
 	ReceiveMessage(listenfd,&m,server);
