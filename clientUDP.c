@@ -7,19 +7,53 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <netdb.h>
+#include <dirent.h>
+#include <pthread.h>
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
 #define dataLength 571
-#define Preamble 4
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 1024
 #define BACKLOG 3
+#define MAXFILE 1024
+#define MAXDIR 1024
 #define CORRECT 'S'
 #define SENDER 'C'
+ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
+{
+	int c;
+	size_t len=0;
+	do
+	{
+		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}
+	while(count>0);
+	return len ;
+}
+ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
+{
+	int c;
+	size_t len=0;
+	do
+	{
+		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}
+	while(count>0);
+	return len ;
+}
 struct Message
 {
 	char Kind;
@@ -163,16 +197,19 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	SendMessage(sendfd,m,server);
 	while(1)
 	{
-		ReceiveMessage(listenfd,&m,&server);
+		ReceiveMessage(listenfd,&m,&address,m.id);
 		if(m.Kind == 'F')
 		{
 			break;
 		}
+		chunk = DeserializeNumber(m.data);
+		fseek(F,chunk*dataLength,SEEK_SET);
+		bulk_fwrite(F,m.data+4,dataLength);
 		//TODO: Write in a file in exact position
-		SendMessage(sendfd,m,server);
+		
 	}
 	//CALC md5 sum of file
-	m = PrepareMessage(id,'F');
+	m = PrepareMessage(m.id,'F');
 	//m.data = md5sum
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
@@ -185,7 +222,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 }
 void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 {
-	struct Message m = PrepareMessage(id,'U');
+	struct Message m = PrepareMessage(0,'U');
 	int size; //getsize
 	//add filename and size to data;
 	SendMessage(sendfd,m,server);
