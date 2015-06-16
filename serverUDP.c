@@ -287,13 +287,16 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 
 void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	char* File = m.data;
+		char* File = m.data;
     FILE * F = fopen(File,"r");
 	struct stat sizeGetter;
 	int count,i,id;
 	stat(File,&sizeGetter);
+	fprintf(stderr,"Received file stats for downloading\n");
 	m = PrepareMessage(GenerateOpID(),'D');
 	id = m.id;
+	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",File,id);
+
 		//getfile size and put it into data
 	SerializeNumber((int)sizeGetter.st_size,m.data);
 	
@@ -521,6 +524,7 @@ int main(int argc,char** argv)
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
 		pthread_mutex_init(&opID,NULL);
+		WaitOnSuper();
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		listenport = atoi(argv[0]);

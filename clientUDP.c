@@ -195,6 +195,8 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		}
 		WakeSuper();
 		WakeMessage();
+		sleep(1);
+		WaitOnSuper();
 	}
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid,int passsecurity)
@@ -206,8 +208,9 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	while(1)
 	{
 if(!passsecurity)	WaitOnSuper();
-	fprintf(stderr,"Regular passed through super (Expected id= %d\n");
+	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 if(!passsecurity)	WaitOnMessage();
+	fprintf(stderr,"Regular beginning read. Expected id = %d\n",expectedid);
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	memset(m,0,sizeof(struct Message));
