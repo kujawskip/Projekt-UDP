@@ -75,7 +75,7 @@ struct Message
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
+	struct Message m = {.Kind = type, .id = id,.responseport=htons(listenport)};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -172,7 +172,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		addr.sin_port = m.responseport;
+		addr->sin_port = m->responseport;
 		WakeMessage();
 		return;
 		}
@@ -200,7 +200,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		addr.sin_port = m.responseport;
+		addr->sin_port = m->responseport;
 		WakeMessage();
 		return;
 	}
