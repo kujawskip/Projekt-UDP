@@ -80,7 +80,7 @@ struct Message PrepareMessage(uint32_t id,char type)
 }
 void SerializeNumber(int number,char* buf)
 {
-	uint32_t i,Number = ltonh(number);
+	uint32_t i,Number = htonl(number);
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++) 
 	{
 		 buf[i] = ((char*)&Number)[i];
@@ -423,7 +423,7 @@ void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
 		client.sin_port = htons(DeserializeNumber(m.data));
 		SendMessage(fd2,m,client);
 }
-void HandleMessage(void* arg)
+void* HandleMessage(void* arg)
 {
 	struct Thread_Arg t = *((struct Thread_Arg*)(arg));
 	if(t.m.Kind=='D')
@@ -446,7 +446,7 @@ void HandleMessage(void* arg)
 	{
 		RegisterClient(t.listenfd,t.sendfd,t.m,t.address);
 	}
-	
+	return NULL;
 }
 
 void MessageQueueWork(int listenfd,int sendfd)
@@ -463,7 +463,7 @@ void MessageQueueWork(int listenfd,int sendfd)
 		t.sendfd = sendfd;
 		memcpy((void*)&(t.address),(void*)&client,sizeof(struct sockaddr_in));
 		memcpy((void*)&(t.m),(void*)&m,sizeof(struct Message));
-		pthread_create(&thread,NULL,(void*)&HandleMessage,(void*)t);
+		pthread_create(&thread,NULL,HandleMessage,(void*)t);
 	}
 }
 void usage(char* c)
