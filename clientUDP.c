@@ -382,12 +382,14 @@ int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	
 	
 	
-	ReceiveMessage(listenfd,&m,server,0,1);
-	server->sin_port = htons(port);	
+	
+	
 	listenport = temp.sin_port;
 	struct Message m = PrepareMessage(0,'R');
 	SerializeNumber(ntohs(temp.sin_port),m.data);
 	SendMessage(broadcastfd,m,addr);
+	ReceiveMessage(listenfd,&m,server,0,1);
+	server->sin_port = htons(port);	
 	return listenfd;
 }
 
