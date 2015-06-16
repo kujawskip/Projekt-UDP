@@ -145,16 +145,80 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
 	sleep(1);
 }
-void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
+pthread_mutex_t SuperMutex;
+pthread_mutex_t MessageMutex;
+void WaitOnMessage()
+{
+	pthread_mutex_lock(&MessageMutex);
+}
+void WaitOnSuper()
+{
+	pthread_mutex_lock(&SuperMutex);
+}
+void WakeMessage()
+{
+	pthread_mutex_unlock(&MessageMutex);
+}
+void WakeSuper()
+{
+	pthread_mutex_unlock(&SuperMutex);
+}
+void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
+	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
-	socklen_t size=sizeof(struct sockaddr_in);
-	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+	socklen_t size = sizeof(struct sockaddr_in);
+	while(1)
+	{
+		fprintf(stderr,"DEBUG Super\n");
+		WaitOnMessage();
+		fprintf(stderr,"Super passed mutex\n");
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		memset(m,0,sizeof(struct Message));
+		DeserializeMessage(MessageBuf,m);
+		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
+		if(m->id==0)
+		{
+	
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		memset(m,0,sizeof(struct Message));
+		DeserializeMessage(MessageBuf,m);
+		WakeMessage();
+		return;
+		}
+		WakeSuper();
+	}
+}
+void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid)
+{
+	char MessageBuf[MAXBUF];
+	fprintf(stderr,"%p DEBUG",(void*)m);
+	memset(MessageBuf,0,MAXBUF);
+	socklen_t size = sizeof(struct sockaddr_in);
+	while(1)
+	{
+	WaitOnSuper();
+	fprintf(stderr,"Regular passed through super (Expected id= %d\n");
+	WaitOnMessage();
+	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
+	if(expectedid==0 || m->id==expectedid)
+	{
+	
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		memset(m,0,sizeof(struct Message));
+		DeserializeMessage(MessageBuf,m);
+		WakeMessage();
+		return;
+	}
+	WakeMessage();
+	WakeSuper();
+	}
 }
+
 ssize_t bulk_write(int fd, char *buf, size_t count)
 {
 	int c;
@@ -172,9 +236,9 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id
 {
 	struct Message m = PrepareMessage(id,'L');
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	ReceiveMessage(listenfd,&m,&server,0);
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	ReceiveMessage(listenfd,&m,&server,m.id);
 	bulk_write(1,m.data+Preamble,dataLength-Preamble);
 }
 void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
@@ -191,7 +255,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	m = PrepareMessage(0,'D');
 	fprintf(stderr,"DEBUG: prepared file %s to write\n",File);
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	ReceiveMessage(listenfd,&m,&server,0);
 	if(m.Kind!='D')
 	{
 		///ERR;
@@ -204,7 +268,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	
 	while(1)
 	{
-		ReceiveMessage(listenfd,&m,&server);
+		ReceiveMessage(listenfd,&m,&server,m.id);
 		if(m.Kind == 'F')
 		{
 			break;
@@ -219,7 +283,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	m = PrepareMessage(m.id,'F');
 	//m.data = md5sum
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	ReceiveMessage(listenfd,&m,&server,m.id);
 	if(m.Kind!='C')
 	{
 		//delete file;
@@ -233,7 +297,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	int size; //getsize
 	//add filename and size to data;
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	ReceiveMessage(listenfd,&m,&server,0);
 	if(m.Kind!='C')
 	{
 		///ERR
@@ -248,14 +312,14 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		{
 			break;
 		}
-		ReceiveMessage(sendfd,&m,&server);
+		
 		//TODO: Write in a file in exact position
 	}
 	//CALC md5 sum of file
 	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	ReceiveMessage(listenfd,&m,&server,m.id);
 	//if(m.data!=md5sum) uncorrect 
 	
 	
@@ -285,7 +349,7 @@ void DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	SerializeNumber(ntohs(temp.sin_port),m.data);
 	SendMessage(broadcastfd,m,addr);
 	
-	ReceiveMessage(listenfd,&m,server);
+	ReceiveMessage(listenfd,&m,server,0);
 	server->sin_port = htons(port);	
 	if(TEMP_FAILURE_RETRY(close(listenfd))<0) ERR("close");
 //close listenfd
@@ -304,6 +368,34 @@ void print_ip(long int ip)
     bytes[3] = (ip >> 24) & 0xFF;	
     printf("%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);        
 }
+struct Socket_Pair
+{
+	int listenfd;
+	int sendfd;
+	
+};
+void* MessageQueueWork(void* arg)
+{
+	struct sockaddr_in client;
+	struct Message m;
+	struct Socket_Pair sp = *((struct Socket_Pair*)arg);
+	while(1)
+	{
+		pthread_t thread;
+		struct Thread_Arg t;
+		SuperReceiveMessage(sp.listenfd,&m,&client);
+		
+	}
+	return NULL;
+}
+void StartListening(int listenfd,int sendfd)
+{
+	struct Socket_Pair sp;
+	pthread_t thread;
+	sp.listenfd = listenfd;
+	sp.sendfd = sendfd;
+	pthread_create(&thread,NULL,MessageQueueWork,(void*)&sp);
+}
 int main(int argc,char** argv)
 {
 	int listenfd,broadcastfd,sendfd;
@@ -318,7 +410,9 @@ int main(int argc,char** argv)
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
 	sendfd = makesocket(SOCK_DGRAM,0);
 	listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
+	StartListening();
 	DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
+	
 	print_ip((long int)server.sin_addr.s_addr);
 	DownloadFile(sendfd,listenfd,server,"mama.txt");
 	return 0;
