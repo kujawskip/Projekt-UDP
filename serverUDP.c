@@ -463,7 +463,7 @@ void MessageQueueWork(int listenfd,int sendfd)
 		t.sendfd = sendfd;
 		memcpy((void*)&(t.address),(void*)&client,sizeof(struct sockaddr_in));
 		memcpy((void*)&(t.m),(void*)&m,sizeof(struct Message));
-		pthread_create(&thread,NULL,HandleMessage,(void*)t);
+		pthread_create(&thread,NULL,HandleMessage,(void*)&t);
 	}
 }
 void usage(char* c)
