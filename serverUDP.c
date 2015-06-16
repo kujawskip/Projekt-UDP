@@ -557,6 +557,10 @@ int main(int argc,char** argv)
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		listenport = htons(atoi(argv[0]));
+		if(listenport == 0)
+		{
+			ERR("PORT:");
+		}
 		while(1)
 		{
 			dirStruct = readdir(directory);

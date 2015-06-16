@@ -70,7 +70,7 @@ struct Message PrepareMessage(uint32_t id,char type)
 	memset(m.data,0,dataLength);
 	if(m.responseport==0)
 	{
-		fprintf(stderr,"DEBUG: response port = 0\n");
+		fprintf(stderr,"DEBUG: response port = 0 (listenport = %d) \n",listenport);
 	}
 	return m;
 }
@@ -447,6 +447,10 @@ int main(int argc,char** argv)
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
 	sendfd = makesocket(SOCK_DGRAM,0);
 	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
+	if(listenport == 0)
+	{
+		ERR("PORT:");
+	}
 	StartListening(&listenfd);
 	
 	
