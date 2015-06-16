@@ -307,7 +307,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 void AddFile(char* FileName)
 {
 	LockDirectory();
-	files[DirLen].Op="N";
+	files[DirLen].Op='N';
 	files[DirLen].perc=0;
 	strcpy(files[DirLen].Name,FileName);
 	UnLockDirectory();
@@ -321,7 +321,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	uint32_t chunk;
 	int size;
 	strcpy(File,m.data);
-	F = = fopen(File,"w+");
+	F = fopen(File,"w+");
 	m = PrepareMessage(GenerateOpID(),'D');
 	
 	SendMessage(sendfd,m,address);
@@ -425,7 +425,7 @@ void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
 }
 void HandleMessage(void* arg)
 {
-	struct Thread_Arg t = (struct Thread_Arg)(*arg);
+	struct Thread_Arg t = *((struct Thread_Arg*)(arg));
 	if(t.m.Kind=='D')
 	{
 		DownloadFile(t.sendfd,t.listenfd,t.m,t.address);
@@ -499,8 +499,8 @@ int main(int argc,char** argv)
 			ERR("Can't open directory");
 		}
 		
-		SuperMutex = PTHREAD_MUTEX_INITIALIZER;
-		MessageMutex = PTHREAD_MUTEX_INITIALIZER;
+		pthread_mutex_init(&SuperMutex,NULL);
+		pthread_mutex_init(&MessageMutex,NULL);
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
@@ -519,7 +519,7 @@ int main(int argc,char** argv)
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		sendfd = makesocket(SOCK_DGRAM,0);
-		MessageQueueWork(listenfd,sendfd;
+		MessageQueueWork(listenfd,sendfd);
 		
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
