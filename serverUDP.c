@@ -81,7 +81,7 @@ struct Message PrepareMessage(uint32_t id,char type)
 	memset(m.data,0,dataLength);
 	if(m.responseport==0)
 	{
-		fprintf(stderr,"DEBUG: response port = 0\n");
+			fprintf(stderr,"DEBUG: response port = 0 (listenport = %d) \n",listenport);
 	}
 	return m;
 }
