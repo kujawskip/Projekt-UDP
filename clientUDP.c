@@ -16,7 +16,7 @@
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
-#define dataLength 571
+#define dataLength 567
 #define BROADCAST 0xFFFFFFFF
 #define Preamble 4
 #define MAXBUF 1024
@@ -55,16 +55,17 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 	while(count>0);
 	return len ;
 }
+int listenport;
 struct Message
 {
 	char Kind;
 	uint32_t id;
-	
+	int responseport;
 	char data[dataLength];
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id};
+	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -91,23 +92,26 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	
+	m->responseport = DeserializeNumber(buf+5)
 	m->id = DeserializeNumber(buf+1);
-	for(;i<dataLength;i++) m->data[i] = buf[i+5];
+	for(;i<dataLength;i++) m->data[i] = buf[i+9];
 }
 void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
+	uint32_t port = htons(m.responseport);
 	buf[0] = m.Kind;
 	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
 		buf[i+1] = ((char*)&Number)[i];
-	}	
+	}
+	for(i=0;i<4;i++)
+		buf[i+5] = ((char*)&port)[i];
 	for(i=0;i<dataLength;i++)
 	{
-		buf[i+1+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
+		buf[i+5+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
 	
 	
@@ -339,7 +343,7 @@ void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		fprintf(stdout,"Unable to delete file %s\n",m.data);
 	}
 }
-void DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
+int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 {
 	struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
 	struct sockaddr_in temp;
@@ -352,8 +356,8 @@ void DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	
 	ReceiveMessage(listenfd,&m,server,0,1);
 	server->sin_port = htons(port);	
-	if(TEMP_FAILURE_RETRY(close(listenfd))<0) ERR("close");
-//close listenfd
+	listenport = port;
+	return listenfd;
 }
 
 void usage(char* c) 
@@ -399,9 +403,9 @@ int main(int argc,char** argv)
 	
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
 	sendfd = makesocket(SOCK_DGRAM,0);
-	listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
+	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
 	StartListening(&listenfd);
-	DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
+	
 	
 	print_ip((long int)server.sin_addr.s_addr);
 	DownloadFile(sendfd,listenfd,server,"mama.txt");

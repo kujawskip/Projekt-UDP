@@ -65,16 +65,17 @@ void DecodeFile(char* buf,struct DirFile f)
 	}
 	sprintf(buf,"%s",f.Name);
 }
+int listenport;
 struct Message
 {
 	char Kind;
 	uint32_t id;
-	
+	int responseport;
 	char data[dataLength];
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id};
+	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -101,23 +102,26 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	
+	m->responseport = htonl(DeserializeNumber(buf+5));
 	m->id = DeserializeNumber(buf+1);
-	for(;i<dataLength;i++) m->data[i] = buf[i+5];
+	for(;i<dataLength;i++) m->data[i] = buf[i+9];
 }
 void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
+	uint32_t port = htons(m.responseport);
 	buf[0] = m.Kind;
 	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
 		buf[i+1] = ((char*)&Number)[i];
-	}	
+	}
+	for(i=0;i<4;i++)
+		buf[i+5] = ((char*)&port)[i];
 	for(i=0;i<dataLength;i++)
 	{
-		buf[i+1+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
+		buf[i+5+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
 	
 	
@@ -168,6 +172,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
+		addr.sin_port = m.responseport;
 		WakeMessage();
 		return;
 		}
@@ -195,6 +200,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
+		addr.sin_port = m.responseport;
 		WakeMessage();
 		return;
 	}
@@ -508,6 +514,7 @@ int main(int argc,char** argv)
 		pthread_mutex_init(&MessageMutex,NULL);
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
+		listenport = atoi(argv[0]);
 		while(1)
 		{
 			dirStruct = readdir(directory);
