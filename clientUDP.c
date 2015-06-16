@@ -33,6 +33,15 @@ struct Message PrepareMessage(uint32_t id,char type)
 	memset(m.data,0,dataLength);
 	return m;
 }
+void SerializeNumber(int number,char* buf)
+{
+	uint32_t i,Number = htonl(number);
+	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++) 
+	{
+		 buf[i] = ((char*)&Number)[i];
+	}
+	
+}
 uint32_t DeserializeNumber(char* buf)
 {
 	uint32_t i,Number = 0;
@@ -97,6 +106,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 	memset(MessageBuf,0,MAXBUF);
 	SerializeMessage(MessageBuf,m);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
+	sleep(1);
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
@@ -139,10 +149,11 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	int i;
 	uint32_t chunk;
 	int size;
-	strcpy(File,m.data);
-	F = = fopen(File,"w+");
-	m = PrepareMessage(GenerateOpID(),'D');
-	ReceiveMessage(listenfd,&m,&address);
+	strcpy(File,path);
+	F = fopen(File,"w+");
+	m = PrepareMessage(0,'D');
+	SendMessage(sendfd,m,server);
+	ReceiveMessage(listenfd,&m,&server);
 	if(m.Kind!='D')
 	{
 		///ERR;
@@ -173,7 +184,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	
 }
 void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
-{z
+{
 	struct Message m = PrepareMessage(id,'U');
 	int size; //getsize
 	//add filename and size to data;
@@ -249,7 +260,7 @@ void print_ip(long int ip)
 }
 int main(int argc,char** argv)
 {
-	int listenfd,broadcastfd;
+	int listenfd,broadcastfd,sendfd;
 	struct sockaddr_in server;
 		if(argc!=2) 
 		{
@@ -259,6 +270,7 @@ int main(int argc,char** argv)
 	memset(&server,0,sizeof(struct sockaddr_in));
 	
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
+	sendfd = makesocket(SOCK_DGRAM,0);
 	listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
 	DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
 	print_ip((long int)server.sin_addr.s_addr);
