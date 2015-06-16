@@ -150,7 +150,9 @@ int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 
 void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
+	
 	char MessageBuf[MAXBUF];
+	m.responseport = listenport;
 	memset(MessageBuf,0,MAXBUF);
 	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
 	SerializeMessage(MessageBuf,m);
@@ -269,11 +271,12 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 	}while(count>0);
 	return len ;
 }
-void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id)
+void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 {
-	struct Message m = PrepareMessage(id,'L');
+	struct Message m = PrepareMessage(0,'L');
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
+	m.responseport = listenport;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
 	bulk_write(1,m.data+Preamble,dataLength-Preamble);
@@ -455,7 +458,30 @@ int main(int argc,char** argv)
 	
 	
 	print_ip((long int)server.sin_addr.s_addr);
-	DownloadFile(sendfd,listenfd,server,"mama.txt");
+	while(1)
+	{
+		char buf[MAXBUF];
+		scanf("%s",MAXBUF);
+		if(strcmp(buf,"DELETE")==0)
+		{
+			scanf("%s",MAXBUF);
+			DeleteFile(sendfd,listenfd,server,buf);
+		}
+		else if(strcmp(buf,"LS") == 0)
+		{
+			ViewDirectory(sendfd,listenfd,server);
+		}
+		else if(strcmp(buf,"DOWNLOAD") == 0)
+		{
+			scanf("%s",MAXBUF);
+			DownloadFile(sendfd,listenfd,server,buf);
+		}
+		else if(strcmp(buf,"UPLOAD")==0)
+		{
+			scanf("%s",MAXBUF);
+			UploadFile(sendfd,listenfd,server,buf);
+		}
+	}
 	
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);

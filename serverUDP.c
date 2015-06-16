@@ -138,7 +138,9 @@ void SerializeMessage(char* buf,struct Message m)
 }
 void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
+	
 	char MessageBuf[MAXBUF];
+	m.responseport = listenport;
 	memset(MessageBuf,0,MAXBUF);
 	SerializeMessage(MessageBuf,m);
 	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
@@ -307,7 +309,8 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 char DirectoryPath[MAXDIR];
 void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-		char* File = m.data;
+	char File[MAXDIR];
+		strcpy(File,m.data);
 char FilePath[MAXDIR];
 memset(FilePath,0,MAXDIR);
 strcat(FilePath,DirectoryPath);
