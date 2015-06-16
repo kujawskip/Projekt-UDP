@@ -33,9 +33,13 @@ struct DirFile
 };
 struct DirFile files[MAXDIR];
 int DirLen;
+pthread_mutex_t opID;
+int opid;
 uint32_t GenerateOpID()
 {
-	return 0;
+	pthread_mutex_lock(&opID);
+	return opid++;
+	pthread_mutex_unlock(&opID);
 }
 void LockDirectory()
 {
@@ -176,9 +180,11 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeMessage();
 		return;
 		}
-		WakeMessage();
+	
 		WakeSuper();
+		WakeMessage();
 		sleep(1);
+		WaitOnSuper();
 	}
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid)
@@ -500,7 +506,7 @@ int main(int argc,char** argv)
 		struct dirent* dirStruct;
 		DIR* directory;
 		struct Message m;
-		
+		opid=1;
 		if(argc!=3)
 		{
 			usage(argv[0]);
@@ -514,6 +520,7 @@ int main(int argc,char** argv)
 		
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
+		pthread_mutex_init(&opID,NULL);
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		listenport = atoi(argv[0]);
@@ -538,6 +545,7 @@ int main(int argc,char** argv)
 		
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
+		pthread_mutex_destroy(&opID);
 return 0;
 		
 }
