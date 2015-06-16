@@ -416,9 +416,15 @@ struct Thread_Arg
 	struct sockaddr_in address;
 	
 };
+void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
+{
+		ReceiveMessage(fd,&m,&client);
+		client.sin_port = htons(DeserializeNumber(m.data));
+		SendMessage(fd2,m,client);
+}
 void HandleMessage(void* arg)
 {
-	struct Thread_Arg t = (Thread_Arg)(*arg);
+	struct Thread_Arg t = (struct Thread_Arg)(*arg);
 	if(t.m.Kind=='D')
 	{
 		DownloadFile(t.sendfd,t.listenfd,t.m,t.address);
@@ -435,17 +441,21 @@ void HandleMessage(void* arg)
 	{
 		ListDirectory(t.sendfd,t.listenfd,t.m,t.address);
 	}
+	else if(t.m.Kind == 'R')
+	{
+		RegisterClient(t.listenfd,t.m,t.address);
+	}
 	
 }
 
 void MessageQueueWork(int listenfd,int sendfd)
 {
-	sockaddr_in client;
+	struct sockaddr_in client;
 	struct Message m;
 	while(1)
 	{
 		pthread_t thread;
-		Thread_Arg t;
+		struct Thread_Arg t;
 		SuperReceiveMessage(listenfd,&m,&client);
 		t = {.m = m,.listenfd=listenfd,.sendfd=senfd,.address=client};
 		pthread_create(&thread,NULL,(void*)&HandleMessage,(void*)t);
@@ -504,10 +514,7 @@ int main(int argc,char** argv)
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		sendfd = makesocket(SOCK_DGRAM,0);
-		ReceiveMessage(listenfd,&m,&client);
-		fprintf(stdout,"%d %c %s\n",m.id,m.Kind,m.data);
-		print_ip((unsigned long int)client.sin_addr.s_addr);
-		SendMessage(sendfd,m,client);
+		MessageQueueWork();
 		
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
