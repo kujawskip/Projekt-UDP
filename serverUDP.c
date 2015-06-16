@@ -311,7 +311,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 {
 	char File[MAXDIR];
 		strcpy(File,m.data);
-		fprintf(stderr,"%s %s \n",File,m.data);
+		fprintf(stderr,"DEBUG: File Data %s %s \n",File,m.data);
 char FilePath[MAXDIR];
 memset(FilePath,0,MAXDIR);
 strcat(FilePath,DirectoryPath);
