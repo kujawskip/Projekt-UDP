@@ -7,6 +7,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <signal.h>
 #include <netdb.h>
@@ -158,7 +159,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		if(m.id==0)
+		if(m->id==0)
 		{
 	
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
@@ -183,7 +184,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
-	if(m.id==expectedid)
+	if(m->id==expectedid)
 	{
 	
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
@@ -306,7 +307,8 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 void AddFile(char* FileName)
 {
 	LockDirectory();
-	files[DirLen] = {.Op="N",.perc=0};
+	files[DirLen].Op="N";
+	files[DirLen].perc=0;
 	strcpy(files[DirLen].Name,FileName);
 	UnLockDirectory();
 }
@@ -459,8 +461,8 @@ void MessageQueueWork(int listenfd,int sendfd)
 		
 		t.listenfd = listenfd;
 		t.sendfd = sendfd;
-		memcpy(t.address,client,sizeof(struct sockaddr_in));
-		memcpy(t.m,m,sizeof(struct Message));
+		memcpy((void*)&(t.address),(void*)&client,sizeof(struct sockaddr_in));
+		memcpy((void*)&(t.m),(void*)&m,sizeof(struct Message));
 		pthread_create(&thread,NULL,(void*)&HandleMessage,(void*)t);
 	}
 }
