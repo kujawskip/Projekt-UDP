@@ -197,7 +197,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	SendMessage(sendfd,m,server);
 	while(1)
 	{
-		ReceiveMessage(listenfd,&m,&address,m.id);
+		ReceiveMessage(listenfd,&m,&serv);
 		if(m.Kind == 'F')
 		{
 			break;
@@ -245,7 +245,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		//TODO: Write in a file in exact position
 	}
 	//CALC md5 sum of file
-	m = PrepareMessage(id,'F');
+	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
