@@ -556,7 +556,7 @@ int main(int argc,char** argv)
 		WaitOnSuper();
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
-		listenport = htons(atoi(argv[0]));
+		listenport = htons(atoi(argv[1]));
 		if(listenport == 0)
 		{
 			ERR("PORT:");
