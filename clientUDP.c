@@ -29,7 +29,7 @@ struct Message
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id,.direction='C'};
+	struct Message m = {.Kind = type, .id = id};
 	memset(m.data,0,dataLength);
 	return m;
 }
@@ -47,8 +47,8 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	m->direction = buf[1];
-	m->id = DeserializeNumber(buf+2);
+	
+	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
 void SerializeMessage(char* buf,struct Message m)
@@ -56,14 +56,14 @@ void SerializeMessage(char* buf,struct Message m)
 	int i;
 	uint32_t Number = htonl(m.id);
 	buf[0] = m.Kind;
-	buf[1] = m.Direction;
+	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
-		buf[i+2] = ((char*)&Number)[i];
+		buf[i+1] = ((char*)&Number)[i];
 	}	
 	for(i=0;i<dataLength;i++)
 	{
-		buf[i+2+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
+		buf[i+1+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
 	
 	
@@ -132,11 +132,17 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id
 }
 void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
 {
-	struct Message m = PrepareMessage(id,'D');
-	//Add filename do message data
+	
+	char File[dataLength];
+	
+	FILE* F;
+	int i;
+	uint32_t chunk;
 	int size;
-	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server);
+	strcpy(File,m.data);
+	F = = fopen(File,"w+");
+	m = PrepareMessage(GenerateOpID(),'D');
+	ReceiveMessage(listenfd,&m,&address);
 	if(m.Kind!='D')
 	{
 		///ERR;
@@ -167,7 +173,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,
 	
 }
 void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,char* path)
-{
+{z
 	struct Message m = PrepareMessage(id,'U');
 	int size; //getsize
 	//add filename and size to data;
@@ -213,14 +219,19 @@ void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,uint32_t id,ch
 		fprintf(stdout,"Unable to delete file %s\n",m.data);
 	}
 }
-int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
+void DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 {
 	struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
+	struct sockaddr_in temp;
+	socklen_t size = sizeof(addr);
 	struct Message m = PrepareMessage(0,'R');
-	SendMessage(broadcastfd,m,addr);
 	int listenfd = bind_inet_socket(0,SOCK_DGRAM,INADDR_ANY,0);
+	getsockname(listenfd,&temp,&size);
+	SerializeNumber(m.data,ntohs(temp.sin_port));
+	SendMessage(broadcastfd,m,addr);
+	
 	ReceiveMessage(listenfd,&m,server);
-	return listenfd;
+	//close listenfd
 }
 
 void usage(char* c) 
@@ -248,8 +259,10 @@ int main(int argc,char** argv)
 	memset(&server,0,sizeof(struct sockaddr_in));
 	
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
-	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
+	listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
+	DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
 	print_ip((long int)server.sin_addr.s_addr);
+	DownloadFile(listenfd,sendfd,server,"mama.txt");
 	return 0;
-
+	
 }

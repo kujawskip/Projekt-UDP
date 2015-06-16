@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <dirent.h>
+#include <pthread.h>
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
@@ -72,9 +73,18 @@ struct Message
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id,.direction='C'};
+	struct Message m = {.Kind = type, .id = id};
 	memset(m.data,0,dataLength);
 	return m;
+}
+void SerializeNumber(int number,char* buf)
+{
+	uint32_t i,Number = ltonh(number);
+	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++) 
+	{
+		 buf[i] = ((char*)&Number)[i];
+	}
+	
 }
 uint32_t DeserializeNumber(char* buf)
 {
@@ -90,8 +100,8 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	m->direction = buf[1];
-	m->id = DeserializeNumber(buf+2);
+	
+	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+5];
 }
 void SerializeMessage(char* buf,struct Message m)
@@ -99,14 +109,14 @@ void SerializeMessage(char* buf,struct Message m)
 	int i;
 	uint32_t Number = htonl(m.id);
 	buf[0] = m.Kind;
-	buf[1] = m.Direction;
+	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
 	{
-		buf[i+2] = ((char*)&Number)[i];
+		buf[i+1] = ((char*)&Number)[i];
 	}	
 	for(i=0;i<dataLength;i++)
 	{
-		buf[i+2+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
+		buf[i+1+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
 	
 	
@@ -118,16 +128,73 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 	SerializeMessage(MessageBuf,m);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
 }
-void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
+pthread_mutex_t SuperMutex;
+pthread_mutex_t MessageMutex;
+void WaitOnMessage()
+{
+	pthread_mutex_lock(&MessageMutex);
+}
+void WaitOnSuper()
+{
+	pthread_mutex_lock(&SuperMutex);
+}
+void WakeMessage()
+{
+	pthread_mutex_unlock(&MessageMutex);
+}
+void WakeSuper()
+{
+	pthread_mutex_unlock(&SuperMutex);
+}
+void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
 	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
-	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+	while(1)
+	{
+		WaitOnMessage();
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		memset(m,0,sizeof(struct Message));
+		DeserializeMessage(MessageBuf,m);
+		if(m.id==0)
+		{
+	
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		memset(m,0,sizeof(struct Message));
+		DeserializeMessage(MessageBuf,m);
+		return;
+		}
+		WakeSuper();
+	}
+}
+void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid)
+{
+	char MessageBuf[MAXBUF];
+	fprintf(stderr,"%p DEBUG",(void*)m);
+	memset(MessageBuf,0,MAXBUF);
+	socklen_t size = sizeof(struct sockaddr_in);
+	while(1)
+	{
+	WaitOnSuper();
+	WaitOnMessage();
+	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
+	if(m.id==expectedid)
+	{
+	
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		memset(m,0,sizeof(struct Message));
+		DeserializeMessage(MessageBuf,m);
+		WakeMessage();
+		return;
+	}
+	WakeMessage();
+	WakeSuper();
+	}
 }
 
 int makesocket(int type,int flag)
@@ -152,6 +219,36 @@ int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
 	return socketfd;
 }
+ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
+{
+	int c;
+	size_t len=0;
+	do
+	{
+		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}
+	while(count>0);
+	return len ;
+}
+ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
+{
+	int c;
+	size_t len=0;
+	do
+	{
+		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}
+	while(count>0);
+	return len ;
+}
 ssize_t bulk_write(int fd, char *buf, size_t count)
 {
 	int c;
@@ -171,43 +268,74 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* File = m.data;
-
+    FILE * F = fopen(File,"r");
+	struct stat sizeGetter;
+	int count,i,id;
+	stat(File,&sizeGetter);
 	m = PrepareMessage(GenerateOpID(),'D');
+	id = m.id;
 		//getfile size and put it into data
+	SerializeNumber((int)sizeGetter.st_size,m.data);
+	
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address);
+	count = ((int)sizeGetter.st_size)/dataLength;
+	
 	///Dziel plik na fragmenty a następnie rozsyłaj
-	while(1)
+	for(i =0;i<count;i++)
 	{
+		m = PrepareMessage(id,'D');
+		SerializeNumber(i,m.data);
+		bulk_fread(F,m.data+4,dataLength);
 		SendMessage(sendfd,m,address);
-		if(m.Kind == 'F')
-		{
-			break;
-		}
-		ReceiveMessage(sendfd,&m,&address);
-		//TODO: Write in a file in exact position
+		
+		
+		
 	}
 	//CALC md5 sum of file
 	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,address);
 	
-	//if(m.data!=md5sum) uncorrect
+	
 	ReceiveMessage(listenfd,&m,&address);
+	
+	//if(m.data!=md5sum) uncorrect
+	fclose(F);
+}
+void AddFile(char* FileName)
+{
+	LockDirectory();
+	files[DirLen] = {.Op="N",.perc=0};
+	strcpy(files[DirLen].Name,FileName);
+	UnLockDirectory();
 }
 void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	m = PrepareMessage(GenerateOpID(),'D');
-	//Add filename do message data
+	char File[dataLength];
+	
+	FILE* F;
+	int i;
+	uint32_t chunk;
 	int size;
+	strcpy(File,m.data);
+	F = = fopen(File,"w+");
+	m = PrepareMessage(GenerateOpID(),'D');
+	
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address);
 	if(m.Kind!='C')
 	{
 		///ERR;
+		
 		return;
 	}
 	size = DeserializeNumber(m.data);
+	for(i=0;i<size;i++)
+	{
+		fwrite(" ",1,1,F);
+	}
+	fseek(F,0,SEEK_SET);
 	SendMessage(sendfd,m,address);
 	while(1)
 	{
@@ -216,17 +344,27 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		{
 			break;
 		}
+		chunk = DeserializeNumber(m.data);
+		fseek(F,chunk*dataLength,SEEK_SET);
+		bulk_fwrite(F,m.data+4,dataLength);
 		//TODO: Write in a file in exact position
-		SendMessage(sendfd,m,address);
+		
 	}
 	//CALC md5 sum of file
 	m = PrepareMessage(m.id,'F');
 	//m.data = md5sum
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address);
+	fclose(F);
+	
 	if(m.Kind!='C')
 	{
-		//delete file;
+		fprintf(stderr,"Error creating file %s\n",File);
+		rename(File,"err.tmp");//delete file;
+	}
+	else
+	{
+		AddFile(F);
 	}
 }
 
@@ -242,6 +380,11 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		{
 			int j;
 			//Delete file from disk
+			if(unlink(name)<0)
+			{
+				UnLockDirectory();
+				break;
+			}
 			if(files[i].Op != 'N')
 			{
 				UnLockDirectory();
@@ -265,24 +408,47 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 {
 	
 }
-
-void HandleMessage(struct Message m,int sendfd,int listenfd,struct sockaddr_in address)
+struct Thread_Arg
 {
-	if(m.Kind=='D')
+	struct Message m;
+	int sendfd;
+	int listenfd;
+	struct sockaddr_in address;
+	
+};
+void HandleMessage(void* arg)
+{
+	struct Thread_Arg t = (Thread_Arg)(*arg);
+	if(t.m.Kind=='D')
 	{
-		DownloadFile(sendfd,listenfd,m,address);
+		DownloadFile(t.sendfd,t.listenfd,t.m,t.address);
 	}
-	else if(m.Kind=='U')
+	else if(t.m.Kind=='U')
 	{
-		UploadFile(sendfd,listenfd,m,address);
+		UploadFile(t.sendfd,t.listenfd,t.m,t.address);
 	}
-	else if(m.Kind=='M')
+	else if(t.m.Kind=='M')
 	{
-		DeleteFile(sendfd,listenfd,m,address);
+		DeleteFile(t.sendfd,t.listenfd,t.m,t.address);
 	}
-	else if(m.Kind=='L')
+	else if(t.m.Kind=='L')
 	{
-		ListDirectory(sendfd,listenfd,m,address);
+		ListDirectory(t.sendfd,t.listenfd,t.m,t.address);
+	}
+	
+}
+
+void MessageQueueWork(int listenfd,int sendfd)
+{
+	sockaddr_in client;
+	struct Message m;
+	while(1)
+	{
+		pthread_t thread;
+		Thread_Arg t;
+		SuperReceiveMessage(listenfd,&m,&client);
+		t = {.m = m,.listenfd=listenfd,.sendfd=senfd,.address=client};
+		pthread_create(&thread,NULL,(void*)&HandleMessage,(void*)t);
 	}
 }
 void usage(char* c)
@@ -318,20 +484,21 @@ int main(int argc,char** argv)
 			ERR("Can't open directory");
 		}
 		
-	
+		SuperMutex = PTHREAD_MUTEX_INITIALIZER;
+		MessageMutex = PTHREAD_MUTEX_INITIALIZER;
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
 		while(1)
 		{
-		dirStruct = readdir(directory);
+			dirStruct = readdir(directory);
 			if(dirStruct == NULL)
 			{
 				break;
 			}
-		strcpy(files[DirLen].Name,dirStruct->d_name);
-		files[DirLen].Op='N';
-		files[DirLen].perc=0;
-		DirLen++;
+			strcpy(files[DirLen].Name,dirStruct->d_name);
+			files[DirLen].Op='N';
+			files[DirLen].perc=0;
+			DirLen++;
 		}
 		fprintf(stdout,"Prepared Directory List\n");
 			//Prepare list of files in directory
@@ -340,10 +507,10 @@ int main(int argc,char** argv)
 		ReceiveMessage(listenfd,&m,&client);
 		fprintf(stdout,"%d %c %s\n",m.id,m.Kind,m.data);
 		print_ip((unsigned long int)client.sin_addr.s_addr);
-		sendfd = bind_inet_socket(DeserializeNumber(m.data),SOCK_DGRAM,ntohl(client.sin_addr.s_addr),0);
 		SendMessage(sendfd,m,client);
-	
 		
+		pthread_mutex_destroy(&SuperMutex);
+		pthread_mutex_destroy(&MessageMutex);
 return 0;
 		
 }
