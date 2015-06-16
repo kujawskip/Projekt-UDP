@@ -18,6 +18,7 @@
 			exit(EXIT_FAILURE))
 #define dataLength 571
 #define BROADCAST 0xFFFFFFFF
+#define Preamble 4
 #define MAXBUF 1024
 #define BACKLOG 3
 #define MAXFILE 1024
@@ -138,7 +139,9 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
 	char MessageBuf[MAXBUF];
 	memset(MessageBuf,0,MAXBUF);
+	fprintf(stderr,"Trying to send message with id %d kind %c and data %s \n",m.id,m.Kind,m.data);
 	SerializeMessage(MessageBuf,m);
+	fprintf(stderr,"Serialized message to %s \n",MessageBuf);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
 	sleep(1);
 }
@@ -186,6 +189,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	strcpy(File,path);
 	F = fopen(File,"w+");
 	m = PrepareMessage(0,'D');
+	fprintf(stderr,"DEBUG: prepared file %s to write\n",File);
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server);
 	if(m.Kind!='D')
@@ -194,10 +198,13 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		return;
 	}
 	size = DeserializeNumber(m.data);
+	fprintf(stderr,"DEBUG: received filesize of %d \n",size);
 	SendMessage(sendfd,m,server);
+	for(i=0;i<size;i++) fwrite(" ",1,1,F);
+	
 	while(1)
 	{
-		ReceiveMessage(listenfd,&m,&serv);
+		ReceiveMessage(listenfd,&m,&server);
 		if(m.Kind == 'F')
 		{
 			break;
@@ -279,7 +286,9 @@ void DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	SendMessage(broadcastfd,m,addr);
 	
 	ReceiveMessage(listenfd,&m,server);
-	//close listenfd
+	server->sin_port = htons(port);	
+	if(TEMP_FAILURE_RETRY(close(listenfd))<0) ERR("close");
+//close listenfd
 }
 
 void usage(char* c) 
@@ -311,7 +320,7 @@ int main(int argc,char** argv)
 	listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,0);
 	DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
 	print_ip((long int)server.sin_addr.s_addr);
-	DownloadFile(listenfd,sendfd,server,"mama.txt");
+	DownloadFile(sendfd,listenfd,server,"mama.txt");
 	return 0;
 	
 }

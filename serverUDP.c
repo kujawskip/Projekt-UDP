@@ -155,16 +155,20 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 	socklen_t size = sizeof(struct sockaddr_in);
 	while(1)
 	{
+		fprintf(stderr,"DEBUG Super\n");
 		WaitOnMessage();
+		fprintf(stderr,"Super passed mutex\n");
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
+		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0)
 		{
 	
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
+		WakeMessage();
 		return;
 		}
 		WakeSuper();
@@ -179,6 +183,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	while(1)
 	{
 	WaitOnSuper();
+	fprintf(stderr,"Regular passed through super (Expected id= %d\n");
 	WaitOnMessage();
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
@@ -463,8 +468,8 @@ void MessageQueueWork(int listenfd,int sendfd)
 		t.sendfd = sendfd;
 		memcpy((void*)&(t.address),(void*)&client,sizeof(struct sockaddr_in));
 		memcpy((void*)&(t.m),(void*)&m,sizeof(struct Message));
-		pthread_create(&thread,NULL,HandleMessage,(void*)&t);
-	}
+			pthread_create(&thread,NULL,HandleMessage,(void*)&t);
+		}
 }
 void usage(char* c)
 {
@@ -481,7 +486,7 @@ void print_ip(unsigned long int ip)
 }
 int main(int argc,char** argv)
 {
-		int listenfd,sendfd,i;
+		int listenfd,sendfd,i,otherfd;
 		struct sockaddr_in client;
 		
 		struct dirent* dirStruct;
@@ -518,6 +523,7 @@ int main(int argc,char** argv)
 		fprintf(stdout,"Prepared Directory List\n");
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
+	
 		sendfd = makesocket(SOCK_DGRAM,0);
 		MessageQueueWork(listenfd,sendfd);
 		
