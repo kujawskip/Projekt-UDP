@@ -176,7 +176,9 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeMessage();
 		return;
 		}
+		WakeMessage();
 		WakeSuper();
+		sleep(1);
 	}
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid)
