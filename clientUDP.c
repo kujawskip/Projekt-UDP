@@ -203,19 +203,15 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0)
 		{
-	
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
-		memset(m,0,sizeof(struct Message));
-		DeserializeMessage(MessageBuf,m);
+			if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 			addr->sin_port = htons(m->responseport);;
-
-		WakeMessage();
-		return;
+			WakeMessage();
+			return;
 		}
 		WakeSuper();
 		WakeMessage();
 		sleep(1);
-fprintf(stderr,"Waiting on Gate");
+		fprintf(stderr,"Waiting on Gate");
 		WaitOnGate();
 	}
 }
@@ -380,15 +376,18 @@ int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
 	struct sockaddr_in temp;
 	socklen_t size = sizeof(addr);
-	struct Message m = PrepareMessage(0,'R');
+	
 	int listenfd = bind_inet_socket(0,SOCK_DGRAM,INADDR_ANY,0);
 	getsockname(listenfd,&temp,&size);
-	SerializeNumber(ntohs(temp.sin_port),m.data);
-	SendMessage(broadcastfd,m,addr);
+	
+	
 	
 	ReceiveMessage(listenfd,&m,server,0,1);
 	server->sin_port = htons(port);	
 	listenport = temp.sin_port;
+	struct Message m = PrepareMessage(0,'R');
+	SerializeNumber(ntohs(temp.sin_port),m.data);
+	SendMessage(broadcastfd,m,addr);
 	return listenfd;
 }
 

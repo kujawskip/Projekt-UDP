@@ -465,7 +465,7 @@ struct Thread_Arg
 };
 void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
 {
-		client.sin_port = htons(DeserializeNumber(m.data));
+		client.sin_port = m.responseport;
 		SendMessage(fd2,m,client);
 }
 void* HandleMessage(void* arg)
