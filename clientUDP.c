@@ -151,6 +151,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 }
 pthread_mutex_t SuperMutex;
 pthread_mutex_t MessageMutex;
+pthread_mutex_t GateMutex;
 void WaitOnMessage()
 {
 	pthread_mutex_lock(&MessageMutex);
@@ -162,6 +163,14 @@ void WaitOnSuper()
 void WakeMessage()
 {
 	pthread_mutex_unlock(&MessageMutex);
+}
+void WaitOnGate()
+{
+	pthread_mutex_lock(&GateMutex);
+}
+void WakeGate()
+{
+	pthread_mutex_unlock(&GateMutex);
 }
 void WakeSuper()
 {
@@ -196,7 +205,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeSuper();
 		WakeMessage();
 		sleep(1);
-		WaitOnSuper();
+		WaitOnGate();
 	}
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid,int passsecurity)
@@ -222,7 +231,7 @@ if(!passsecurity)	WaitOnMessage();
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 			addr->sin_port = m->responseport;
-
+		if(!passsecurity) WakeGate();
 		if(!passsecurity) WakeMessage();
 		return;
 	}
@@ -407,7 +416,12 @@ int main(int argc,char** argv)
 			return EXIT_FAILURE;
 		}
 	memset(&server,0,sizeof(struct sockaddr_in));
-	
+	pthread_mutex_init(&SuperMutex,NULL);
+		pthread_mutex_init(&MessageMutex,NULL);
+		pthread_mutex_init(&opID,NULL);
+		pthread_mutex_init(&GateMutex,NULL);
+		WaitOnGate();
+		WaitOnSuper();
 	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
 	sendfd = makesocket(SOCK_DGRAM,0);
 	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
@@ -416,6 +430,11 @@ int main(int argc,char** argv)
 	
 	print_ip((long int)server.sin_addr.s_addr);
 	DownloadFile(sendfd,listenfd,server,"mama.txt");
+	
+		pthread_mutex_destroy(&SuperMutex);
+		pthread_mutex_destroy(&MessageMutex);
+		pthread_mutex_destroy(&opID);
+		pthread_mutex_destroy(&GateMutex);
 	return 0;
 	
 }

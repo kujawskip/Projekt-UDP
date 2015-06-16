@@ -139,6 +139,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 }
 pthread_mutex_t SuperMutex;
 pthread_mutex_t MessageMutex;
+pthread_mutex_t GateMutex;
 void WaitOnMessage()
 {
 	pthread_mutex_lock(&MessageMutex);
@@ -150,6 +151,14 @@ void WaitOnSuper()
 void WakeMessage()
 {
 	pthread_mutex_unlock(&MessageMutex);
+}
+void WaitOnGate()
+{
+	pthread_mutex_lock(&GateMutex);
+}
+void WakeGate()
+{
+	pthread_mutex_unlock(&GateMutex);
 }
 void WakeSuper()
 {
@@ -185,6 +194,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeMessage();
 		sleep(1);
 		WaitOnSuper();
+		WaitOnGate();
 	}
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid)
@@ -210,6 +220,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		DeserializeMessage(MessageBuf,m);
 		addr->sin_port = m->responseport;
 		WakeMessage();
+		WakeGate();
 		return;
 	}
 	WakeMessage();
@@ -524,6 +535,8 @@ int main(int argc,char** argv)
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
 		pthread_mutex_init(&opID,NULL);
+		pthread_mutex_init(&GateMutex,NULL);
+		WaitOnGate();
 		WaitOnSuper();
 		memset(&m,0,sizeof(struct Message));
 		memset(&client,0,sizeof(struct sockaddr_in));
@@ -550,6 +563,7 @@ int main(int argc,char** argv)
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 		pthread_mutex_destroy(&opID);
+		pthread_mutex_destroy(&GateMutex);
 return 0;
 		
 }
