@@ -16,7 +16,7 @@
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
-#define dataLength 571
+#define dataLength 567
 #define BROADCAST 0xFFFFFFFF
 #define MAXBUF 1024
 #define BACKLOG 3
@@ -106,7 +106,11 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	m->responseport = htonl(DeserializeNumber(buf+5));
+	 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++) 
+	{
+		((char*)&(m->responseport))[i] = buf[i+5];
+	}
+
 	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+9];
 }
@@ -114,7 +118,7 @@ void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
-	uint32_t port = htons(m.responseport);
+	uint32_t port = m.responseport;
 	buf[0] = m.Kind;
 	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
@@ -135,6 +139,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 	char MessageBuf[MAXBUF];
 	memset(MessageBuf,0,MAXBUF);
 	SerializeMessage(MessageBuf,m);
+	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
 }
 pthread_mutex_t SuperMutex;
@@ -185,7 +190,9 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		addr->sin_port = m->responseport;
+		fprintf(stderr,"Changing port from %d to %d\n",addr->sin_port,m->responseport);
+		addr->sin_port = htons(m->responseport);
+
 		WakeMessage();
 		return;
 		}
@@ -218,7 +225,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		addr->sin_port = m->responseport;
+		addr->sin_port = htons(m->responseport);
 		WakeMessage();
 		WakeGate();
 		return;
@@ -295,22 +302,27 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 	while(count>0);
 	return len ;
 }
-
+char DirectoryPath[MAXDIR];
 void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 		char* File = m.data;
-    FILE * F = fopen(File,"r");
+char FilePath[MAXDIR];
+memset(FilePath,0,MAXDIR);
+strcat(FilePath,DirectoryPath);
+strcat(FilePath,"/");
+strcat(FilePath,File);
+    FILE * F = fopen(FilePath,"r");
 	struct stat sizeGetter;
-	int count,i,id;
+	int count,i,id,fd;
 	stat(File,&sizeGetter);
 	fprintf(stderr,"Received file stats for downloading\n");
 	m = PrepareMessage(GenerateOpID(),'D');
 	id = m.id;
-	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",File,id);
+	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",FilePath,id);
 
 		//getfile size and put it into data
-	SerializeNumber((int)sizeGetter.st_size,m.data);
-	
+	SerializeNumber((uint32_t)sizeGetter.st_size,m.data);
+	fprintf(stderr,"Preparing to send filesize %ld\n",sizeGetter.st_size);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	count = ((int)sizeGetter.st_size)/dataLength;
@@ -521,12 +533,14 @@ int main(int argc,char** argv)
 		DIR* directory;
 		struct Message m;
 		opid=1;
+		
 		if(argc!=3)
 		{
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
-		directory = opendir(argv[2]);
+		realpath(argv[2],DirectoryPath);
+		directory = opendir(DirectoryPath);
 		if(directory == NULL)
 		{
 			ERR("Can't open directory");

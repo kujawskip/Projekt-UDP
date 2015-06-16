@@ -92,7 +92,11 @@ void DeserializeMessage(char* buf,struct Message* m)
 {
 	int i=0;
 	m->Kind = buf[0];
-	m->responseport = DeserializeNumber(buf+5);
+	 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++) 
+	{
+		((char*)&(m->responseport))[i] = buf[i+5];
+	}
+
 	m->id = DeserializeNumber(buf+1);
 	for(;i<dataLength;i++) m->data[i] = buf[i+9];
 }
@@ -143,7 +147,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 {
 	char MessageBuf[MAXBUF];
 	memset(MessageBuf,0,MAXBUF);
-	fprintf(stderr,"Trying to send message with id %d kind %c and data %s \n",m.id,m.Kind,m.data);
+	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
 	SerializeMessage(MessageBuf,m);
 	fprintf(stderr,"Serialized message to %s \n",MessageBuf);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
@@ -154,10 +158,14 @@ pthread_mutex_t MessageMutex;
 pthread_mutex_t GateMutex;
 void WaitOnMessage()
 {
+	fprintf(stderr,"Locking on Message\n");
 	pthread_mutex_lock(&MessageMutex);
+	fprintf(stderr,"Passed through Message\n");
 }
 void WaitOnSuper()
 {
+	fprintf(stderr,"Locking on Super\n");
+
 	pthread_mutex_lock(&SuperMutex);
 }
 void WakeMessage()
@@ -166,6 +174,8 @@ void WakeMessage()
 }
 void WaitOnGate()
 {
+	fprintf(stderr,"Locking on Gate\n");
+
 	pthread_mutex_lock(&GateMutex);
 }
 void WakeGate()
@@ -197,7 +207,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-			addr->sin_port = m->responseport;
+			addr->sin_port = htons(m->responseport);;
 
 		WakeMessage();
 		return;
@@ -205,6 +215,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeSuper();
 		WakeMessage();
 		sleep(1);
+fprintf(stderr,"Waiting on Gate");
 		WaitOnGate();
 	}
 }
@@ -230,8 +241,12 @@ if(!passsecurity)	WaitOnMessage();
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-			addr->sin_port = m->responseport;
-		if(!passsecurity) WakeGate();
+			addr->sin_port = htons(m->responseport);;
+		if(!passsecurity) 
+{
+fprintf(stderr,"Waking the gate\n");
+WakeGate();
+}
 		if(!passsecurity) WakeMessage();
 		return;
 	}
@@ -274,6 +289,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	strcpy(File,path);
 	F = fopen(File,"w+");
 	m = PrepareMessage(0,'D');
+	strcpy(m.data,File);
 	fprintf(stderr,"DEBUG: prepared file %s to write\n",File);
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
@@ -372,7 +388,7 @@ int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 	
 	ReceiveMessage(listenfd,&m,server,0,1);
 	server->sin_port = htons(port);	
-	listenport = port;
+	listenport = temp.sin_port;
 	return listenfd;
 }
 
@@ -418,7 +434,7 @@ int main(int argc,char** argv)
 	memset(&server,0,sizeof(struct sockaddr_in));
 	pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
-		pthread_mutex_init(&opID,NULL);
+	//	pthread_mutex_init(&opID,NULL);
 		pthread_mutex_init(&GateMutex,NULL);
 		WaitOnGate();
 		WaitOnSuper();
@@ -433,7 +449,7 @@ int main(int argc,char** argv)
 	
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
-		pthread_mutex_destroy(&opID);
+	//	pthread_mutex_destroy(&opID);
 		pthread_mutex_destroy(&GateMutex);
 	return 0;
 	
