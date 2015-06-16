@@ -118,7 +118,7 @@ void SerializeMessage(char* buf,struct Message m)
 {
 	int i;
 	uint32_t Number = htonl(m.id);
-	uint32_t port = m.responseport;
+	int port = m.responseport;
 	buf[0] = m.Kind;
 	
 	for(i=0;i<sizeof(uint32_t)/sizeof(char);i++)
