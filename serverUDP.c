@@ -278,7 +278,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	SerializeNumber((int)sizeGetter.st_size,m.data);
 	
 	SendMessage(sendfd,m,address);
-	ReceiveMessage(listenfd,&m,&address);
+	ReceiveMessage(listenfd,&m,&address,m.id);
 	count = ((int)sizeGetter.st_size)/dataLength;
 	
 	///Dziel plik na fragmenty a następnie rozsyłaj
@@ -298,7 +298,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	SendMessage(sendfd,m,address);
 	
 	
-	ReceiveMessage(listenfd,&m,&address);
+	ReceiveMessage(listenfd,&m,&address,m.id);
 	
 	//if(m.data!=md5sum) uncorrect
 	fclose(F);
@@ -323,7 +323,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	m = PrepareMessage(GenerateOpID(),'D');
 	
 	SendMessage(sendfd,m,address);
-	ReceiveMessage(listenfd,&m,&address);
+	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
 	{
 		///ERR;
@@ -339,7 +339,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	SendMessage(sendfd,m,address);
 	while(1)
 	{
-		ReceiveMessage(listenfd,&m,&address);
+		ReceiveMessage(listenfd,&m,&address,m.id);
 		if(m.Kind == 'F')
 		{
 			break;
@@ -354,7 +354,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	m = PrepareMessage(m.id,'F');
 	//m.data = md5sum
 	SendMessage(sendfd,m,address);
-	ReceiveMessage(listenfd,&m,&address);
+	ReceiveMessage(listenfd,&m,&address,m.id);
 	fclose(F);
 	
 	if(m.Kind!='C')
@@ -364,7 +364,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	}
 	else
 	{
-		AddFile(F);
+		AddFile(File);
 	}
 }
 
@@ -418,7 +418,6 @@ struct Thread_Arg
 };
 void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
 {
-		ReceiveMessage(fd,&m,&client);
 		client.sin_port = htons(DeserializeNumber(m.data));
 		SendMessage(fd2,m,client);
 }
@@ -443,7 +442,7 @@ void HandleMessage(void* arg)
 	}
 	else if(t.m.Kind == 'R')
 	{
-		RegisterClient(t.listenfd,t.m,t.address);
+		RegisterClient(t.listenfd,t.sendfd,t.m,t.address);
 	}
 	
 }
@@ -457,7 +456,11 @@ void MessageQueueWork(int listenfd,int sendfd)
 		pthread_t thread;
 		struct Thread_Arg t;
 		SuperReceiveMessage(listenfd,&m,&client);
-		t = {.m = m,.listenfd=listenfd,.sendfd=senfd,.address=client};
+		
+		t.listenfd = listenfd;
+		t.sendfd = sendfd;
+		memcpy(t.address,client,sizeof(struct sockaddr_in));
+		memcpy(t.m,m,sizeof(struct Message));
 		pthread_create(&thread,NULL,(void*)&HandleMessage,(void*)t);
 	}
 }
@@ -514,7 +517,7 @@ int main(int argc,char** argv)
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
 		sendfd = makesocket(SOCK_DGRAM,0);
-		MessageQueueWork();
+		MessageQueueWork(listenfd,sendfd;
 		
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
