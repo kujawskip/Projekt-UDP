@@ -461,10 +461,10 @@ int main(int argc,char** argv)
 	while(1)
 	{
 		char buf[MAXBUF];
-		scanf("%s",MAXBUF);
+		scanf("%s",buf);
 		if(strcmp(buf,"DELETE")==0)
 		{
-			scanf("%s",MAXBUF);
+			scanf("%s",buf);
 			DeleteFile(sendfd,listenfd,server,buf);
 		}
 		else if(strcmp(buf,"LS") == 0)
@@ -473,12 +473,12 @@ int main(int argc,char** argv)
 		}
 		else if(strcmp(buf,"DOWNLOAD") == 0)
 		{
-			scanf("%s",MAXBUF);
+			scanf("%s",buf);
 			DownloadFile(sendfd,listenfd,server,buf);
 		}
 		else if(strcmp(buf,"UPLOAD")==0)
 		{
-			scanf("%s",MAXBUF);
+			scanf("%s",buf);
 			UploadFile(sendfd,listenfd,server,buf);
 		}
 	}
