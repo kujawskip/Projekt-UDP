@@ -114,7 +114,7 @@ void DeserializeMessage(char* buf,struct Message* m)
 	}
 
 	m->id = DeserializeNumber(buf+1);
-	for(;i<dataLength;i++) m->data[i] = buf[i+9];
+	for(i=0;i<dataLength;i++) m->data[i] = buf[i+9];
 }
 void SerializeMessage(char* buf,struct Message m)
 {
