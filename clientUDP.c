@@ -369,7 +369,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	//CALC md5 sum of file
 	if(CalcFileMD5(File,md5_sum)<0)
 	{
-		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);
+		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
 		RenameFile(File);
 	}
 
