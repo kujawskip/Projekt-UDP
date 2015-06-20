@@ -72,7 +72,7 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 {
 	int c;
 	size_t len=0;
-	len = strlen(buf)+1;
+	len = strlen(buf);
 	if(count>len) count=len;
 	len = 0;
 	do
@@ -321,7 +321,8 @@ void RenameFile(char* FilePath)
 		strcat(FileName,".err");
 		if(rename(FilePath,FileName)<0)
 		{
-			fprintf(stderr,"Error renaming the file %s to %s\n",FilePath,FileName);
+			fprintf(stderr,"File %s:");
+				perror("Error renaming the file");
 		}
 }
 void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)

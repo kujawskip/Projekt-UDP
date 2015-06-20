@@ -309,7 +309,7 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 {
 	int c;
 	size_t len=0;
-	len = strlen(buf)+1;
+	len = strlen(buf);
 	if(count>len) count=len;
 	len = 0;
 	do
@@ -390,7 +390,7 @@ strcat(FilePath,File);
 	
 	ReceiveMessage(listenfd,&m,&address,m.id);
 		fclose(F);
-	if(CalcFileMD5(FilePath,md5_sum)<0)
+	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
 		m = PrepareMessage(m.id,'E');
@@ -503,7 +503,9 @@ strcat(FilePath,name);
 					//Delete file from disk
 			if(unlink(FilePath)<0)
 			{
-				fprintf(stderr,"Error unlinking the file %s \n",name);
+				fprintf(stderr,"File %s:");
+				perror("Error unlinking the file");
+				
 				UnLockDirectory();
 				break;
 			}
