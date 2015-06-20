@@ -336,12 +336,16 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	//m.data = md5sum
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
+	fclose(F);
 	if(m.Kind!='C')
 	{
 		//delete file;
 	}
-	
-	
+	else
+	{
+		fprintf(stdout,"Finished downloading file %s \n",File);
+	}
+		
 }
 void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 {
@@ -471,24 +475,30 @@ int main(int argc,char** argv)
 	print_ip((long int)server.sin_addr.s_addr);
 	while(1)
 	{
+		
 		char buf[MAXBUF];
+		fprintf(stdout,"Menu: DELETE DOWNLOAD LS UPLOAD\n");
 		scanf("%s",buf);
 		if(strcmp(buf,"DELETE")==0)
 		{
+			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
 			DeleteFile(sendfd,listenfd,server,buf);
 		}
 		else if(strcmp(buf,"LS") == 0)
 		{
+			
 			ViewDirectory(sendfd,listenfd,server);
 		}
 		else if(strcmp(buf,"DOWNLOAD") == 0)
 		{
+			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
 			DownloadFile(sendfd,listenfd,server,buf);
 		}
 		else if(strcmp(buf,"UPLOAD")==0)
 		{
+			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
 			UploadFile(sendfd,listenfd,server,buf);
 		}

@@ -364,6 +364,9 @@ strcat(FilePath,File);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	
 	//if(m.data!=md5sum) uncorrect
+	//else
+	m = PrepareMessage(m.id,'C');
+	SendMessage(sendfd,m,address);
 	fclose(F);
 }
 void AddFile(char* FileName)
