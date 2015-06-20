@@ -339,6 +339,7 @@ strcat(FilePath,File);
 		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,File,m.id);
 		m = PrepareMessage(id,'D');
 		SerializeNumber(i,m.data);
+		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength);
 		SendMessage(sendfd,m,address);
 		
