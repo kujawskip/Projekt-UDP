@@ -336,7 +336,7 @@ strcat(FilePath,File);
 	///Dziel plik na fragmenty a następnie rozsyłaj
 	for(i =0;i<count;i++)
 	{
-		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,FileName,m.id);
+		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,File,m.id);
 		m = PrepareMessage(id,'D');
 		SerializeNumber(i,m.data);
 		bulk_fread(F,m.data+4,dataLength);
@@ -346,7 +346,7 @@ strcat(FilePath,File);
 		
 	}
 	//CALC md5 sum of file
-	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,FileName);
+	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
 	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,address);
