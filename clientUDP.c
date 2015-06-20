@@ -31,7 +31,10 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	size_t len=0;
 	do
 	{
+		
 		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
+		fprintf(stderr,"DEBUG: Fread %d msg: %s\n",c,buf);
+		if(c==0) break;
 		if(c<0) return c;
 		buf+=c;
 		len+=c;
@@ -47,6 +50,7 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 	do
 	{
 		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
+		fprintf(stderr,"DEBUG: Fwrite %d msg: %s\n",c,buf);
 		if(c<0) return c;
 		buf+=c;
 		len+=c;
