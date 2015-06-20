@@ -382,7 +382,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 }
 void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 {
-	struct Message m = PrepareMessage('M',0);
+	struct Message m = PrepareMessage(0,'M');
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(m.Kind == 'C')
