@@ -468,13 +468,14 @@ strcat(FilePath,name);
 				UnLockDirectory();
 				break;
 			}
+			fprintf(stderr,"DEBUG: moving files %d %d \n",i,DirLen);
 			for(j=i;j<DirLen-1;j++)
 			{
 				files[j]=files[j+1];
 			}
 			DirLen--;
 			m = PrepareMessage(m.id,'C');
-			
+			SendMessage(sendfd,m,address);
 			UnLockDirectory();
 			return;
 		}
