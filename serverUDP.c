@@ -267,7 +267,9 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	size_t len=0;
 	do
 	{
+		
 		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
+		fprintf(stderr,"DEBUG: Fread %d\n",c);
 		if(c<0) return c;
 		buf+=c;
 		len+=c;
