@@ -440,20 +440,31 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char* name = m.data;
 	int i;
 	LockDirectory();
-	
+	m.id = GenerateOpID();
+	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
+		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,files[i].Name);
 		if(0==strcmp(name,files[i].Name))
 		{
+			char FilePath[MAXDIR];
+memset(FilePath,0,MAXDIR);
+strcat(FilePath,DirectoryPath);
+strcat(FilePath,"/");
+strcat(FilePath,File);
 			int j;
-			//Delete file from disk
-			if(unlink(name)<0)
+	
+			
+			if(files[i].Op != 'N')
 			{
+				fprintf(stderr,"File is busy %s \n",name);
 				UnLockDirectory();
 				break;
 			}
-			if(files[i].Op != 'N')
+					//Delete file from disk
+			if(unlink(FilePath)<0)
 			{
+				fprintf(stderr,"Error unlinking the file %s \n",name);
 				UnLockDirectory();
 				break;
 			}
