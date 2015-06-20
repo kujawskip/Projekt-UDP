@@ -331,7 +331,7 @@ strcat(FilePath,File);
 	fprintf(stderr,"Preparing to send filesize %ld\n",sizeGetter.st_size);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
-	count = ((int)sizeGetter.st_size)/dataLength;
+	count = 1+(((int)sizeGetter.st_size)/dataLength);
 	
 	///Dziel plik na fragmenty a następnie rozsyłaj
 	for(i =0;i<count;i++)
