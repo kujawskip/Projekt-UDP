@@ -367,10 +367,10 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	fprintf(stderr,"DEBUG: Finished receiving file %s id: %d \n",File,m.id);
 		fclose(F);
 	//CALC md5 sum of file
-	if(CalcFileMD5(FilePath,md5_sum)<0)
+	if(CalcFileMD5(File,md5_sum)<0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);
-		RenameFile(FilePath);
+		RenameFile(File);
 	}
 
 	m = PrepareMessage(m.id,'F');
@@ -380,7 +380,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	
 	if(m.Kind!='C')
 	{
-		RenameFile(FilePath);
+		RenameFile(File);
 		//delete file;
 	}
 	else
