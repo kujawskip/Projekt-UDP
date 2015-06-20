@@ -204,7 +204,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeSuper();
 		WakeMessage();
 		sleep(1);
-		WaitOnSuper();
+		fprintf(stderr,"Waiting on Gate");
 		WaitOnGate();
 	}
 }
