@@ -462,13 +462,13 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 				files[j]=files[j+1];
 			}
 			DirLen--;
-			m = PrepareMessage('C',m.id);
+			m = PrepareMessage(m.id,'C');
 			
 			UnLockDirectory();
 			return;
 		}
 	}
-	m = PrepareMessage('E',m.id);
+	m = PrepareMessage(m.id,'E');
 	SendMessage(sendfd,m,address);
 }
 void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
