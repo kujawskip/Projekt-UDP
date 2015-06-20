@@ -314,12 +314,15 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		{
 			break;
 		}
+		
 		chunk = DeserializeNumber(m.data);
+		fprintf(stderr,"DEBUG: Received chunk %d of file %s id: %d \n",chunk,File,m.id);
 		fseek(F,chunk*dataLength,SEEK_SET);
 		bulk_fwrite(F,m.data+4,dataLength);
 		//TODO: Write in a file in exact position
 		
 	}
+	fprintf(stderr,"DEBUG: Finished receiving file %s id: %d \n",File,m.id);
 	//CALC md5 sum of file
 	m = PrepareMessage(m.id,'F');
 	//m.data = md5sum
