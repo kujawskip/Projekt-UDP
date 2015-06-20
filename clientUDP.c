@@ -25,6 +25,31 @@
 #define MAXDIR 1024
 #define CORRECT 'S'
 #define SENDER 'C'
+#define STR_VALUE(val) #val
+#define STR(name) STR_VALUE(name)
+
+#define PATH_LEN 256
+#define MD5_LEN 32
+
+int CalcFileMD5(char *file_name, char *md5_sum)
+{
+    #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
+    char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
+    sprintf(cmd, MD5SUM_CMD_FMT, file_name);
+    #undef MD5SUM_CMD_FMT
+
+    FILE *p = popen(cmd, "r");
+    if (p == NULL) return 0;
+
+    int i, ch;
+    for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
+        *md5_sum++ = ch;
+    }
+
+    *md5_sum = '\0';
+    pclose(p);
+    return i == MD5_LEN;
+}
 ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 {
 	int c;
@@ -289,10 +314,20 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
 	bulk_write(1,m.data+Preamble,dataLength-Preamble);
 }
+void RenameFile(char* FilePath)
+{
+	char FileName[dataLength];
+		strcpy(FileName,FilePath);
+		strcat(FileName,".err");
+		if(rename(FilePath,FileName)<0)
+		{
+			fprintf(stderr,"Error renaming the file %s to %s\n",FilePath,FileName);
+		}
+}
 void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 {
 	
-	char File[dataLength];
+	char File[dataLength],md5_sum[MD5_LEN];
 	struct Message m;
 	FILE* F;
 	int i;
@@ -313,8 +348,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	size = DeserializeNumber(m.data);
 	fprintf(stderr,"DEBUG: received filesize of %d \n",size);
 	SendMessage(sendfd,m,server);
-	for(i=0;i<size;i++) fwrite(" ",1,1,F);
-	
+	for(i=0;i<size;i++) fwrite(" ",1,1,F);	
 	while(1)
 	{
 		ReceiveMessage(listenfd,&m,&server,m.id,0);
@@ -331,14 +365,22 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		
 	}
 	fprintf(stderr,"DEBUG: Finished receiving file %s id: %d \n",File,m.id);
+		fclose(F);
 	//CALC md5 sum of file
+	if(CalcFileMD5(FilePath,md5_sum)<0)
+	{
+		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);
+		RenameFile(FilePath);
+	}
+
 	m = PrepareMessage(m.id,'F');
-	//m.data = md5sum
+	strcpy(m.data,md5_sum);
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
-	fclose(F);
+	
 	if(m.Kind!='C')
 	{
+		RenameFile(FilePath);
 		//delete file;
 	}
 	else

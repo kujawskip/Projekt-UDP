@@ -22,7 +22,33 @@
 #define BACKLOG 3
 #define MAXFILE 1024
 #define MAXDIR 1024
+#include <ctype.h>
 
+#define STR_VALUE(val) #val
+#define STR(name) STR_VALUE(name)
+
+#define PATH_LEN 256
+#define MD5_LEN 32
+
+int CalcFileMD5(char *file_name, char *md5_sum)
+{
+    #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
+    char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
+    sprintf(cmd, MD5SUM_CMD_FMT, file_name);
+    #undef MD5SUM_CMD_FMT
+
+    FILE *p = popen(cmd, "r");
+    if (p == NULL) return 0;
+
+    int i, ch;
+    for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
+        *md5_sum++ = ch;
+    }
+
+    *md5_sum = '\0';
+    pclose(p);
+    return i == MD5_LEN;
+}
 struct DirFile
 {
 	char Name[MAXFILE];
@@ -317,7 +343,7 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 char DirectoryPath[MAXDIR];
 void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	char File[MAXDIR];
+	char File[MAXDIR],md5_sum[MD5_LEN];
 		strcpy(File,m.data);
 		fprintf(stderr,"DEBUG: File Data %s %s \n",File,m.data);
 char FilePath[MAXDIR];
@@ -355,6 +381,7 @@ strcat(FilePath,File);
 		
 	}
 	//CALC md5 sum of file
+	
 	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
 	m = PrepareMessage(m.id,'F');
 	
@@ -362,12 +389,24 @@ strcat(FilePath,File);
 	
 	
 	ReceiveMessage(listenfd,&m,&address,m.id);
-	
-	//if(m.data!=md5sum) uncorrect
-	//else
+		fclose(F);
+	if(CalcFileMD5(FilePath,md5_sum)<0)
+	{
+		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
+		m = PrepareMessage(m.id,'E');
+		SendMessage(sendfd,m,address);
+		return;
+	}
+	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
+	if(0!=strcmp(m.data,md5_sum))
+	{
+		m = PrepareMessage(m.id,'E');
+		SendMessage(sendfd,m,address);
+		return;
+	}
 	m = PrepareMessage(m.id,'C');
 	SendMessage(sendfd,m,address);
-	fclose(F);
+
 }
 void AddFile(char* FileName)
 {
