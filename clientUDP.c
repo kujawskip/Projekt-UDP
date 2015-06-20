@@ -47,9 +47,13 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 {
 	int c;
 	size_t len=0;
+	len = strlen(buf)+1;
+	if(count>len) count=len;
+	len = 0;
 	do
 	{
 		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
+		fflush(fd);
 		fprintf(stderr,"DEBUG: Fwrite %d msg: %s\n",c,buf);
 		if(c<0) return c;
 		buf+=c;
