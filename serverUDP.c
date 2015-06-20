@@ -451,7 +451,7 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 memset(FilePath,0,MAXDIR);
 strcat(FilePath,DirectoryPath);
 strcat(FilePath,"/");
-strcat(FilePath,File);
+strcat(FilePath,name);
 			int j;
 	
 			
