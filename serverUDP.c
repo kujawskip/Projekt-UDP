@@ -601,8 +601,8 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 		SerializeNumber(i,m.data);
 		for(j=0;i<dataLength-4;i++)
 		{
-			if(Dir[(i*(dataLength-4)+j]=='\0') break;
-			m.data[j+4] = Dir[(i*(dataLength-4) + j];
+			if(Dir[(i*(dataLength-4))+j]=='\0') break;
+			m.data[j+4] = Dir[(i*(dataLength-4)) + j];
 		}
 		SendMessage(sendfd,m,address);
 	}
