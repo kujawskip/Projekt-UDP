@@ -308,7 +308,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 {
 	struct Message m = PrepareMessage(0,'L');
 	char* Dir;
-	int size;
+	int size,i;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(m.Kind != L)
@@ -333,7 +333,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 		
 		chunk = DeserializeNumber(m.data);
 		fprintf(stderr,"DEBUG: Received chunk %d of file %s id: %d \n",chunk,File,m.id);
-		for(int i=0;i<dataLength-Preamble;i++)
+		for(i=0;i<dataLength-Preamble;i++)
 		{
 			if(m.data[i+4]=='\0') break;
 			Dir[(chunk *dataLength-Preamble)+i] =m.data[i+4];
