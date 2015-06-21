@@ -718,11 +718,15 @@ int main(int argc,char** argv)
 		}
 		while(1)
 		{
+			struct stat st;
+
 			dirStruct = readdir(directory);
 			if(dirStruct == NULL)
 			{
 				break;
 			}
+			lstat(dirStruct->d_name, &st);
+if(S_ISDIR(st.st_mode)) continue;
 			strcpy(files[DirLen].Name,dirStruct->d_name);
 			files[DirLen].Op='N';
 			files[DirLen].perc=0;
