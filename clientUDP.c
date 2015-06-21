@@ -332,7 +332,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 		}
 		
 		chunk = DeserializeNumber(m.data);
-	
+		fprintf(stderr,"DEBUG: %s \n",m.data+4);
 		for(i=0;i<dataLength-Preamble;i++)
 		{
 			if(m.data[i+4]=='\0') break;
