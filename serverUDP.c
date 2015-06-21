@@ -421,11 +421,11 @@ strcat(FilePath,File);
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength);
 		SendMessage(sendfd,m,address);
-		files[fd].Perc += iter;
+		files[fd].perc += iter;
 		
 		
 	}
-	files[fd].Perc = 1000;
+	files[fd].perc = 1000;
 	//CALC md5 sum of file
 	
 	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
