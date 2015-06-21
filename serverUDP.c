@@ -359,6 +359,7 @@ void PrepareAndSendMessage(int it,struct sockaddr_in address,int id,char k)
 }
 int FindFileId(char* name)
 {
+	int i;
 	for(i=0;i<DirLen;i++)
 	{
 		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,files[i].Name);
@@ -588,7 +589,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	truesize++;
 	m = PrepareMessage(GenerateOpID(),'L');
 	SendMessage(sendfd,m,address);
-	ReceiveMessage(listenfd,&m,&address);
+	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind == 'E')
 	{
 		free(Dir);
