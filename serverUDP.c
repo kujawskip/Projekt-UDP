@@ -603,7 +603,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	{
 		m = PrepareMessage(m.id,'D');
 		SerializeNumber(i,m.data);
-		for(j=0;i<dataLength-4;i++)
+		for(j=0;j<dataLength-4;j++)
 		{
 			if(Dir[(i*(dataLength-4))+j]=='\0') break;
 			m.data[j+4] = Dir[(i*(dataLength-4)) + j];
