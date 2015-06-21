@@ -308,7 +308,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 {
 	struct Message m = PrepareMessage(0,'L');
 	char* Dir;
-	int size,i;
+	int size,i,chunk;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(m.Kind != L)
