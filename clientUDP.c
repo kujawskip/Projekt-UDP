@@ -307,12 +307,41 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 {
 	struct Message m = PrepareMessage(0,'L');
+	char* Dir;
+	int size;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
+	if(m.Kind != L)
+	{
+		
+	}
+	size = DeserializeNumber(m.data);
 	m.responseport = listenport;
+	Dir = (char*)malloc(size*sizeof(char));
+	if(Dir==NULL)
+	{
+		
+	}
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server,m.id,0);
-	bulk_write(1,m.data+Preamble,dataLength-Preamble);
+	while(1)
+	{
+		ReceiveMessage(listenfd,&m,&server,m.id,0);
+		if(m.Kind == 'F')
+		{
+			break;
+		}
+		
+		chunk = DeserializeNumber(m.data);
+		fprintf(stderr,"DEBUG: Received chunk %d of file %s id: %d \n",chunk,File,m.id);
+		for(int i=0;i<dataLength-Preamble;i++)
+		{
+			if(m.data[i+4]=='\0') break;
+			Dir[(chunk *dataLength-Preamble)+i] =m.data[i+4];
+		}
+	}
+	
+	bulk_write(1,Dir,size);
+	free(Dir);
 }
 void RenameFile(char* FilePath)
 {
@@ -344,6 +373,9 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	if(m.Kind!='D')
 	{
 		///ERR;
+		fclose(F);
+		fprintf(stderr,"File: %s",File);
+		perror("File not found");
 		return;
 	}
 	size = DeserializeNumber(m.data);
@@ -360,18 +392,19 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		
 		chunk = DeserializeNumber(m.data);
 		fprintf(stderr,"DEBUG: Received chunk %d of file %s id: %d \n",chunk,File,m.id);
-		fseek(F,chunk*dataLength,SEEK_SET);
+		fseek(F,chunk*(dataLength-Preamble),SEEK_SET);
 		bulk_fwrite(F,m.data+4,dataLength);
 		//TODO: Write in a file in exact position
 		
 	}
 	fprintf(stderr,"DEBUG: Finished receiving file %s id: %d \n",File,m.id);
-		fclose(F);
+	fclose(F);
 	//CALC md5 sum of file
-	if(CalcFileMD5(File,md5_sum)<0)
+	if(CalcFileMD5(File,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
 		RenameFile(File);
+		return;
 	}
 
 	m = PrepareMessage(m.id,'F');
