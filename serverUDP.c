@@ -73,8 +73,9 @@ int opid;
 uint32_t GenerateOpID()
 {
 	pthread_mutex_lock(&opID);
-	return opid++;
+	int c = opid++;
 	pthread_mutex_unlock(&opID);
+	return c;
 }
 void LockDirectory()
 {
