@@ -66,8 +66,8 @@ struct DirFile
 	char Op;
 	int perc;
 };
-struct DirFile files[MAXDIR];
-int DirLen;
+volatile struct DirFile files[MAXDIR];
+volatile int DirLen;
 pthread_mutex_t opID;
 int opid;
 uint32_t GenerateOpID()
