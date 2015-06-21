@@ -590,7 +590,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	truesize++;
 	fprintf(stderr,"DEBUG: %d %s \n",truesize,Dir);
 	m = PrepareMessage(GenerateOpID(),'L');
-	SerializeNumber(m.data,truesize);
+	SerializeNumber(truesize,m.data);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind == 'E')
