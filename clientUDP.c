@@ -336,7 +336,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 		for(i=0;i<dataLength-Preamble;i++)
 		{
 			if(m.data[i+4]=='\0') break;
-			Dir[(chunk *dataLength-Preamble)+i] =m.data[i+4];
+			Dir[(chunk *(dataLength-Preamble))+i] =m.data[i+4];
 		}
 	}
 	
