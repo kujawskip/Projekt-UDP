@@ -97,10 +97,10 @@ int DecodeFile(char* buf,struct DirFile f)
 	switch(f.Op)
 	{
 		case 'D':
-	return sprintf(buf,"%s Downloading %d/100 \n",f.Name,f.perc);
+	return sprintf(buf,"%s Downloading %d/1000 \n",f.Name,f.perc);
 	 
 	case 'U':
-	return sprintf(buf,"%s Uploading %d/100 \n",f.Name,f.perc);
+	return sprintf(buf,"%s Uploading %d/1000 \n",f.Name,f.perc);
 	
 	}
 	return sprintf(buf,"%s\n",f.Name);
@@ -380,7 +380,7 @@ char FilePath[MAXDIR];
 	
     FILE * F;
 	struct stat sizeGetter;
-	int count,i,id,fd;
+	int count,i,id,fd,iter;
 	LockDirectory();
 	strcpy(File,m.data);
 		fprintf(stderr,"DEBUG: File Data %s %s \n",File,m.data);
@@ -411,7 +411,7 @@ strcat(FilePath,File);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	count = 1+(((int)sizeGetter.st_size)/(dataLength-4));
-	
+	iter = 1000/count;
 	///Dziel plik na fragmenty a następnie rozsyłaj
 	for(i =0;i<count;i++)
 	{
@@ -421,10 +421,11 @@ strcat(FilePath,File);
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength);
 		SendMessage(sendfd,m,address);
-		
+		files[fd].Perc += iter;
 		
 		
 	}
+	files[fd].Perc = 1000;
 	//CALC md5 sum of file
 	
 	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
