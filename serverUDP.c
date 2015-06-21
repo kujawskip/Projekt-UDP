@@ -393,6 +393,7 @@ char FilePath[MAXDIR];
 	}
 	UnLockDirectory();
 	LockFile(fd);
+	files[fd].Op='D';
 	memset(FilePath,0,MAXDIR);
 strcat(FilePath,DirectoryPath);
 strcat(FilePath,"/");
