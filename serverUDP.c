@@ -419,7 +419,7 @@ strcat(FilePath,File);
 		m = PrepareMessage(id,'D');
 		SerializeNumber(i,m.data);
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
-		bulk_fread(F,m.data+4,dataLength);
+		bulk_fread(F,m.data+4,dataLength-4);
 		SendMessage(sendfd,m,address);
 		files[fd].perc += iter;
 		
