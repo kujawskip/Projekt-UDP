@@ -30,6 +30,23 @@
 #define PATH_LEN 256
 #define MD5_LEN 32
 
+void sleepforseconds(int sec)
+{
+	struct timespec tim, tim2;
+   tim.tv_sec = 1;
+   tim.tv_nsec = 0;
+
+   while(nanosleep(&tim , &tim2) < 0 )   
+   {
+     if (errno==EINTR)
+	 {
+		 tim = tim2;
+	 }
+	 else ERR("SLEEP");
+   }
+
+
+}
 int CalcFileMD5(char *file_name, char *md5_sum)
 {
     #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
@@ -183,6 +200,7 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 	SerializeMessage(MessageBuf,m);
 	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
+	
 }
 pthread_mutex_t SuperMutex;
 pthread_mutex_t MessageMutex;
@@ -416,6 +434,7 @@ strcat(FilePath,File);
 	///Dziel plik na fragmenty a następnie rozsyłaj
 	for(i =0;i<count;i++)
 	{
+		if(i>0) sleepforseconds(1);
 		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,File,m.id);
 		m = PrepareMessage(id,'D');
 		SerializeNumber(i,m.data);
@@ -604,6 +623,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	size = 1 + (truesize/(dataLength-4));
 	for( i=0;i<size;i++)
 	{
+		if(i>0) sleepforseconds(1);
 		m = PrepareMessage(m.id,'D');
 		SerializeNumber(i,m.data);
 		for(j=0;j<dataLength-4;j++)
