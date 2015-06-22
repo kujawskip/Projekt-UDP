@@ -30,27 +30,9 @@
 
 #define PATH_LEN 256
 #define MD5_LEN 32
-
-int CalcFileMD5(char *file_name, char *md5_sum)
-{
-    #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
-    char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
-    sprintf(cmd, MD5SUM_CMD_FMT, file_name);
-    #undef MD5SUM_CMD_FMT
-
-    FILE *p = popen(cmd, "r");
-    if (p == NULL) return 0;
-
-    int i, ch;
-    for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
-        *md5_sum++ = ch;
-    }
-
-    *md5_sum = '\0';
-    pclose(p);
-    return i == MD5_LEN;
-}
-ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
+#define savefile "savefile.dat"
+FILE* OperationSaver;
+ssize_t bulk_fread(FILE* F,char* buf,size_t count)
 {
 	int c;
 	size_t len=0;
@@ -67,6 +49,19 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	}
 	while(count>0);
 	return len ;
+}
+int ReadLine(FILE* F,char* buf)
+{
+	char c;
+	int i;
+	while(1)
+	{
+		i = bulk_fread(F,buf,1);
+		if(i==0) return;
+		if(i<0) ERR("fread");
+		buf+=i;
+		if(*(buf-1)=='\n') return;
+	}
 }
 ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 {
@@ -88,6 +83,81 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 	while(count>0);
 	return len ;
 }
+void SaveOperation(int id,char Kind,char* data,int finished)
+{
+	char buf[MAXBUF];
+	char fdata[MAXFILE];
+	char fkind;
+	int fid,pos,temp;
+	
+	if(finished)
+	{
+		fseek(OperationSaver,0,SEEK_SET);
+		while(1)
+		{
+		pos = ftell(OperationSaver);
+		if(ReadLine(OperationSaver,buf)<0) return;
+		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,&fdata,&temp);
+			if(id == fid)
+			{
+				fseek(OperationSaver,pos,SEEK_SET);
+				pos = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,kind,data,finished);
+				bulk_fwrite(OperationSaver,buf,pos);
+				fseek(OperationSaver,0,SEEK_SET);
+				return;
+			}
+		}
+	}
+	else
+	{
+		struct stat sizegetter;
+		pos = fileno(OperationSaver);
+		fstat(pos,&sizeGetter);
+		temp = (int)sizeGetter.st_size;
+		fseek(OperationSaver,temp,SEEK_SET);
+		temp = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,kind,data,finished);
+		bulk_fwrite(OperationSaver,buf,temp);
+		fseek(OperationSaver,0,SEEK_SET);
+	}
+}
+void sleepforseconds(int sec)
+{
+	struct timespec tim, tim2;
+   tim.tv_sec = 1;
+   tim.tv_nsec = 0;
+
+   while(nanosleep(&tim , &tim2) < 0 )   
+   {
+     if (errno==EINTR)
+	 {
+		 tim = tim2;
+	 }
+	 else ERR("SLEEP");
+   }
+
+
+}
+int CalcFileMD5(char *file_name, char *md5_sum)
+{
+    #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
+    char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
+    sprintf(cmd, MD5SUM_CMD_FMT, file_name);
+    #undef MD5SUM_CMD_FMT
+
+    FILE *p = popen(cmd, "r");
+    if (p == NULL) return 0;
+
+    int i, ch;
+    for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
+        *md5_sum++ = ch;
+    }
+
+    *md5_sum = '\0';
+    pclose(p);
+    return i == MD5_LEN;
+}
+
+
 int listenport;
 struct Message
 {
@@ -311,10 +381,12 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 	int size,i,chunk;
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
+	
 	if(m.Kind != 'L')
 	{
 		
 	}
+	SaveOperation(m.id,'L',"",0);
 	size = DeserializeNumber(m.data);
 	m.responseport = listenport;
 	Dir = (char*)malloc(size*sizeof(char));
@@ -339,7 +411,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
 			Dir[(chunk *(dataLength-Preamble))+i] =m.data[i+4];
 		}
 	}
-	
+	SaveOperation(m.id,'L',"",1);
 	bulk_write(1,Dir,size);
 	free(Dir);
 }
@@ -378,6 +450,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 		perror("File not found");
 		return;
 	}
+	SaveOperation(m.id,m.Kind,path,0);
 	size = DeserializeNumber(m.data);
 	fprintf(stderr,"DEBUG: received filesize of %d \n",size);
 	SendMessage(sendfd,m,server);
@@ -411,7 +484,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	strcpy(m.data,md5_sum);
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
-	
+	SaveOperation(m.id,'D',path,1);
 	if(m.Kind!='C')
 	{
 		RenameFile(File);
@@ -421,37 +494,73 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	{
 		fprintf(stdout,"Finished downloading file %s \n",File);
 	}
-		
+	
 }
-void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
+void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath)
 {
 	struct Message m = PrepareMessage(0,'U');
 	int size; //getsize
 	//add filename and size to data;
+	char md5_sum[MD5_LEN];
+		
+
+
+	
+    FILE * F;
+	struct stat sizeGetter;
+	int count,i,id,fd,iter;
+	stat(File,&sizeGetter);
+	size = (int)sizeGetter.st_size;
+	SerializeNumber(size,m.data);
+	strcpy(m.data+4,FilePath);
+		count = 1+(((int)sizeGetter.st_size)/(dataLength-4));
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
-	if(m.Kind!='C')
+	SaveOperation(m.id,'U',FilePath,0);
+	if(m.Kind!='U')
 	{
 		///ERR
 		return;
 	}
 
 	///Dziel plik na fragmenty a następnie rozsyłaj
-	while(1)
+	for(i =0;i<count;i++)
 	{
-		SendMessage(sendfd,m,server);
-		if(m.Kind == 'F')
-		{
-			break;
-		}
+		if(i>0) sleepforseconds(1);
+		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,FilePath,m.id);
+		m = PrepareMessage(id,'U');
+		SerializeNumber(i,m.data);
+		fprintf(stderr,"DEBUG: Preparing Read from file\n");
+		bulk_fread(F,m.data+4,dataLength-4);
+		SendMessage(sendfd,m,address);
 		
-		//TODO: Write in a file in exact position
+		
+		
 	}
 	//CALC md5 sum of file
 	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server,m.id,0);
+	ReceiveMessage(listenfd,&m,&address,m.id,0);
+	if(CalcFileMD5(FilePath,md5_sum)==0)
+	{
+		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
+		m = PrepareMessage(m.id,'E');
+		SendMessage(sendfd,m,address);
+		return;
+	}
+	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
+	SaveOperation(m.id,'U',FilePath,1);
+	if(0!=strcmp(m.data,md5_sum))
+	{
+		m = PrepareMessage(m.id,'E');
+		SendMessage(sendfd,m,address);
+		return;
+	}
+	m = PrepareMessage(m.id,'C');
+	
+	SendMessage(sendfd,m,address);
+	
 	//if(m.data!=md5sum) uncorrect 
 	
 	
@@ -475,15 +584,9 @@ int DiscoverAddress(int broadcastfd,int port,struct sockaddr_in* server)
 {
 	struct sockaddr_in addr = {.sin_family=AF_INET, .sin_addr.s_addr=htonl(INADDR_BROADCAST), .sin_port=htons(port)};
 	struct sockaddr_in temp;
-	socklen_t size = sizeof(addr);
-	
+	socklen_t size = sizeof(addr);	
 	int listenfd = bind_inet_socket(0,SOCK_DGRAM,INADDR_ANY,0);
-	getsockname(listenfd,&temp,&size);
-	
-	
-	
-	
-	
+	getsockname(listenfd,&temp,&size);	
 	listenport = temp.sin_port;
 	struct Message m = PrepareMessage(0,'R');
 	SerializeNumber(ntohs(temp.sin_port),m.data);

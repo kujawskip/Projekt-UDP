@@ -391,11 +391,8 @@ int FindFileId(char* name)
 }
 void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	char File[MAXDIR],md5_sum[MD5_LEN];
-		
-char FilePath[MAXDIR];
-
-	
+	char File[MAXDIR],md5_sum[MD5_LEN];		
+	char FilePath[MAXDIR];	
     FILE * F;
 	struct stat sizeGetter;
 	int count,i,id,fd,iter;
@@ -413,17 +410,13 @@ char FilePath[MAXDIR];
 	LockFile(fd);
 	files[fd].Op='D';
 	memset(FilePath,0,MAXDIR);
-strcat(FilePath,DirectoryPath);
-strcat(FilePath,"/");
-strcat(FilePath,File);
-	
+	sprintf(FilePath,"%s/%s",DirectoryPath,File);	
 	F = fopen(FilePath,"r");
 	stat(File,&sizeGetter);
 	fprintf(stderr,"Received file stats for downloading\n");
 	m = PrepareMessage(GenerateOpID(),'D');
 	id = m.id;
 	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",FilePath,id);
-
 		//getfile size and put it into data
 	SerializeNumber((uint32_t)sizeGetter.st_size,m.data);
 	fprintf(stderr,"Preparing to send filesize %ld\n",sizeGetter.st_size);
@@ -441,21 +434,18 @@ strcat(FilePath,File);
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength-4);
 		SendMessage(sendfd,m,address);
-		files[fd].perc += iter;
-		
-		
+		files[fd].perc += iter;		
 	}
 	files[fd].perc = 1000;
-	//CALC md5 sum of file
-	
+	//CALC md5 sum of file	
 	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
-	m = PrepareMessage(m.id,'F');
-	
-	SendMessage(sendfd,m,address);
-	
-	
+	m = PrepareMessage(m.id,'F');	
+	SendMessage(sendfd,m,address);	
 	ReceiveMessage(listenfd,&m,&address,m.id);
-		fclose(F);
+	fclose(F);
+	files[fd].Op = 'N';
+	files[fd].perc = 0;
+	UnLockFile(fd);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
@@ -472,7 +462,6 @@ strcat(FilePath,File);
 	}
 	m = PrepareMessage(m.id,'C');
 	SendMessage(sendfd,m,address);
-
 }
 void AddFile(char* FileName)
 {
@@ -487,13 +476,25 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char File[dataLength];
 	
 	FILE* F;
-	int i;
+	char FilePath[MAXDIR];
+	int i,fd;
 	uint32_t chunk;
 	int size;
 	strcpy(File,m.data);
-	F = fopen(File,"w+");
-	m = PrepareMessage(GenerateOpID(),'D');
+	memset(FilePath,0,MAXDIR);
+strcat(FilePath,DirectoryPath);
+strcat(FilePath,"/");
+strcat(FilePath,File);
 	
+	F = fopen(FilePath,"w+");
+	m = PrepareMessage(GenerateOpID(),'U');
+	LockDirectory();
+	fd = DirLen;
+	files[fd].Op = 'U';
+	files[fd].perc = 0;
+	strcpy(files[fd].Name,File);
+	DirLen++;
+	UnLockDirectory();
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
@@ -523,9 +524,16 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		
 	}
 	//CALC md5 sum of file
+		if(CalcFileMD5(FilePath,md5_sum)==0)
+	{
+		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
+		RenameFile(File);
+		return;
+	}
+
 	m = PrepareMessage(m.id,'F');
-	//m.data = md5sum
-	SendMessage(sendfd,m,address);
+	strcpy(m.data,md5_sum);
+	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	fclose(F);
 	
@@ -592,8 +600,7 @@ strcat(FilePath,name);
 }
 void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	char* Dir;
-	
+	char* Dir;	
 	int size,truesize=0,i,j;
 	LockDirectory();
 	size = DirLen*(dataLength);
