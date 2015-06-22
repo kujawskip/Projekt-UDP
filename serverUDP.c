@@ -115,7 +115,8 @@ uint32_t GenerateOpID(int* id,char TaskType)
 	if(*id>0) return *id;
 	pthread_mutex_lock(&opID);
 	*id = opid++;
-	sprintf(buf,"%d %c",*id,TaskType);
+	sprintf(buf,"%d %c\n",*id,TaskType);
+	fprintf(stderr,"DEBIG: Printed %d %c to buf\n",*id,TaskType);
 	bulk_fwrite(TaskReporter,buf,6);
 	pthread_mutex_unlock(&opID);
 	return *id;
