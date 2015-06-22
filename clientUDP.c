@@ -633,7 +633,7 @@ struct ThreadArg
 };
 void* BeginOperation(void * arg)
 {
-	struct ThreadArg* trarg = (struct ThreadArg*)arg;
+	struct ThreadArg trarg = *((struct ThreadArg*)arg);
 	if(trarg.Kind=='D')
 	{
 		DownloadFile(trarg.sendfd,trarg.listenfd,trarg.address,trarg.data,trarg.restart);
@@ -656,17 +656,17 @@ void* BeginOperation(void * arg)
 }
 void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* data,char Kind,int restart,struct ThreadArg* trarg)
 {
-	trarg = {.sendfd = sendfd,.listenfd=listenfd,.address = address,.restart=restart,.Kind=Kind};
+	(*trarg) = {.sendfd = sendfd,.listenfd=listenfd,.address = address,.restart=restart,.Kind=Kind};
 	strcpy(trarg.data,data);
 	pthread_t thread;
-	pthread_create(&thread,&BeginOperation,(void*)(trarg));
+	pthread_create(&thread,BeginOperation,(void*)(trarg));
 }
 void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 {
 	char buf[MAXBUF];
 	char fdata[MAXFILE];
 	char fkind;
-	int fid,pos,temp;
+	int fid,temp;
 		while(1)
 		{
 			struct ThreadArg trarg;
