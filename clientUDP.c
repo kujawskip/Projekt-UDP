@@ -101,7 +101,7 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 			if(id == fid)
 			{
 				fseek(OperationSaver,pos,SEEK_SET);
-				pos = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,Kind,data,finished);
+				pos = sprintf(buf,"id:%d kind:%c data:%s finished:%d\n",id,Kind,data,finished);
 				bulk_fwrite(OperationSaver,buf,pos);
 				fseek(OperationSaver,0,SEEK_SET);
 				return;
@@ -115,7 +115,7 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 		fstat(pos,&sizeGetter);
 		temp = (int)sizeGetter.st_size;
 		fseek(OperationSaver,temp,SEEK_SET);
-		temp = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,Kind,data,finished);
+		temp = sprintf(buf,"id:%d kind:%c data:%s finished:%d\n",id,Kind,data,finished);
 		bulk_fwrite(OperationSaver,buf,temp);
 		fseek(OperationSaver,0,SEEK_SET);
 	}
@@ -387,7 +387,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	{
 		
 	}
-	SaveOperation(m.id,'L',"",0);
+	if(restart==0) SaveOperation(m.id,'L',"",0);
 	size = DeserializeNumber(m.data);
 	m.responseport = listenport;
 	Dir = (char*)malloc(size*sizeof(char));
@@ -452,7 +452,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,i
 		perror("File not found");
 		return;
 	}
-	SaveOperation(m.id,m.Kind,path,0);
+	if(restart==0) SaveOperation(m.id,m.Kind,path,0);
 	size = DeserializeNumber(m.data);
 	fprintf(stderr,"DEBUG: received filesize of %d \n",size);
 	SendMessage(sendfd,m,server);
@@ -516,7 +516,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 		if(restart>0) m=PrepareMessage(restart,'R');
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
-	SaveOperation(m.id,'U',FilePath,0);
+	if(restart==0) SaveOperation(m.id,'U',FilePath,0);
 	F = fopen(FilePath,"r");
 	if(m.Kind!='U')
 	{
