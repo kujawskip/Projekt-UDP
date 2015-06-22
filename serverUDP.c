@@ -417,7 +417,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	UnLockDirectory();
 	LockFile(fd);
 	files[fd].Op='D';
-	files[fd].am++'
+	files[fd].am++;
 	UnLockFile(fd);
 	memset(FilePath,0,MAXDIR);
 	sprintf(FilePath,"%s/%s",DirectoryPath,File);	
