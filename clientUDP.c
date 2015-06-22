@@ -52,13 +52,14 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 }
 int ReadLine(FILE* F,char* buf)
 {
-	int i;
+	int i,j=0;
 	while(1)
 	{
 		i = bulk_fread(F,buf,1);
-		if(i==0) return 0;
+		if(i==0) return (j==0)?0:1;
 		if(i<0) return -1;
 		buf+=i;
+		j+=i;
 		if(*(buf-1)=='\n') return 1;
 	}
 }
