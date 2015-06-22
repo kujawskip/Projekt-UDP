@@ -658,7 +658,7 @@ void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* dat
 {
 	trarg->sendfd = sendfd;
 	trarg->listenfd=listenfd;
-	memcpy((void*)&(trarg.address),(void*)&address,sizeof(struct sockaddr_in));
+	memcpy((void*)&(trarg->address),(void*)&address,sizeof(struct sockaddr_in));
 	trarg->restart=restart;
 	trarg.Kind=Kind;
 	strcpy(trarg->data,data);
