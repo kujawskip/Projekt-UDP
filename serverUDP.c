@@ -86,7 +86,7 @@ volatile struct DirFile files[MAXDIR];
 volatile int DirLen;
 pthread_mutex_t opID;
 int opid;
-uint32_t GenerateOpID(int* id);
+uint32_t GenerateOpID(int* id)
 {
 	if(id>0) return id;
 	pthread_mutex_lock(&opID);
@@ -577,7 +577,7 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char* name = m.data;
 	int i,id=0;
 	LockDirectory();
-	m.id = GenerateOpID(&id)
+	m.id = GenerateOpID(&id);
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
