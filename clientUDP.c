@@ -632,9 +632,9 @@ struct ThreadArg
 	int sendfd;
 	int listenfd;
 	struct sockaddr_in address;
-	char data[MAXBUF];
 	int restart;
 	char Kind;
+	char data[MAXBUF];
 };
 void* BeginOperation(void * arg)
 {
@@ -675,7 +675,7 @@ void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* dat
 void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 {
 	char buf[MAXBUF];
-	char fdata[MAXFILE];
+	char fdata[MAXBUF];
 	char fkind;
 	int fid,temp;
 		while(1)
