@@ -23,13 +23,14 @@
 #define BACKLOG 3
 #define MAXFILE 1024
 #define MAXDIR 1024
-
+#define MAXTASK 1000000
 #define STR_VALUE(val) #val
 #define STR(name) STR_VALUE(name)
 
 #define PATH_LEN 256
 #define MD5_LEN 32
-
+int minid;
+char RetiredIDs[MAXTASK];
 void sleepforseconds(int sec)
 {
 	struct timespec tim, tim2;
@@ -86,11 +87,15 @@ volatile struct DirFile files[MAXDIR];
 volatile int DirLen;
 pthread_mutex_t opID;
 volatile int opid;
-uint32_t GenerateOpID(int* id)
+FILE* TaskReporter;
+uint32_t GenerateOpID(int* id,char TaskType)
 {
+	char buf[7];
 	if(*id>0) return *id;
 	pthread_mutex_lock(&opID);
 	*id = opid++;
+	sprintf(buf,"%d %c",*id,TaskType);
+	bulk_fwrite(TaskReporter,buf,6);
 	pthread_mutex_unlock(&opID);
 	return *id;
 }
@@ -244,7 +249,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
-		if(m->id==0)
+		if(m->id==0 || m->id<minid)
 		{
 	
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
@@ -256,6 +261,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeMessage();
 		return;
 		}
+		
 	
 		WakeSuper();
 		WakeMessage();
@@ -403,7 +409,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	if(fd<0)
 	{
 		UnLockDirectory();
-		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id),'E');
+		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id,'D'),'E');
 		return;
 	}
 	UnLockDirectory();
@@ -416,7 +422,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	fprintf(stderr,"Received file stats for downloading\n");
 	while(1)
 	{
-	m = PrepareMessage(GenerateOpID(&id),'D');
+	m = PrepareMessage(GenerateOpID(&id,'D'),'D');
 	
 	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",FilePath,id);
 		//getfile size and put it into data
@@ -502,7 +508,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	AddFile(File);
 	while(1)
 	{
-	m = PrepareMessage(GenerateOpID(&id),'U');
+	m = PrepareMessage(GenerateOpID(&id,'U'),'U');
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
@@ -577,7 +583,7 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char* name = m.data;
 	int i,id=0;
 	LockDirectory();
-	m.id = GenerateOpID(&id);
+	m.id = GenerateOpID(&id,'M')
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
@@ -645,7 +651,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	
 	truesize++;
 	fprintf(stderr,"DEBUG: %d %s \n",truesize,Dir);
-	m = PrepareMessage(GenerateOpID(&id),'L');
+	m = PrepareMessage(GenerateOpID(&id,'L'),'L');
 	SerializeNumber(truesize,m.data);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
@@ -689,22 +695,28 @@ void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
 		client.sin_port = m.responseport;
 		SendMessage(fd2,m,client);
 }
+
 void* HandleMessage(void* arg)
 {
 	struct Thread_Arg t = *((struct Thread_Arg*)(arg));
-	if(t.m.Kind=='D')
+	char Kind='N';
+	if(t.m.id>0)
+	{
+		Kind = RetiredIDs[t.m.id];
+	}
+	if(t.m.Kind=='D' || Kind == 'D' )
 	{
 		DownloadFile(t.sendfd,t.listenfd,t.m,t.address);
 	}
-	else if(t.m.Kind=='U')
+	else if(t.m.Kind=='U' || Kind == 'U')
 	{
 		UploadFile(t.sendfd,t.listenfd,t.m,t.address);
 	}
-	else if(t.m.Kind=='M')
+	else if(t.m.Kind=='M' || Kind == 'M')
 	{
 		DeleteFile(t.sendfd,t.listenfd,t.m,t.address);
 	}
-	else if(t.m.Kind=='L')
+	else if(t.m.Kind=='L' || Kind == 'L')
 	{
 		ListDirectory(t.sendfd,t.listenfd,t.m,t.address);
 	}
@@ -732,6 +744,7 @@ void MessageQueueWork(int listenfd,int sendfd)
 			pthread_create(&thread,NULL,HandleMessage,(void*)&t);
 		}
 }
+void RestoreOperation
 void usage(char* c)
 {
 	fprintf(stderr,"USAGE: %s port directory\n",c);
@@ -747,9 +760,9 @@ void print_ip(unsigned long int ip)
 }
 int main(int argc,char** argv)
 {
-		int listenfd,sendfd;
+		int listenfd,sendfd,iter;
 		struct sockaddr_in client;
-		
+		char filebuf[7];
 		struct dirent* dirStruct;
 		DIR* directory;
 		struct Message m;
@@ -766,7 +779,17 @@ int main(int argc,char** argv)
 		{
 			ERR("Can't open directory");
 		}
-		
+		TaskReporter = fopen("serversave.dat","a+");
+		minid=1;
+		RetiredIDs[0] = 'N';
+		while((iter=bulk_fread(TaskReporter,filebuf,7))>0)
+		{
+			int fid;
+			char c;
+			sscanf(filebuf,"%d %c",&fid,&c);
+			RetiredIDs[fid]=c;
+			if(minid <fid+1) minid=fid+1;
+		}
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
 		pthread_mutex_init(&opID,NULL);

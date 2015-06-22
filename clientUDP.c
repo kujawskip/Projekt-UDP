@@ -33,6 +33,7 @@
 #define MD5_LEN 32
 #define savefile "savefile.dat"
 FILE* OperationSaver;
+
 ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 {
 	int c;
@@ -89,7 +90,7 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 	char fdata[MAXFILE];
 	char fkind;
 	int fid,pos,temp;
-	
+	///TODO: AddSync
 	if(finished)
 	{
 		fseek(OperationSaver,0,SEEK_SET);
