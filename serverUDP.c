@@ -102,6 +102,7 @@ struct DirFile
 	char Name[MAXFILE];
 	char Op;
 	int perc;
+	int am;
 };
 volatile struct DirFile files[MAXDIR];
 volatile int DirLen;
@@ -402,12 +403,12 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	char FilePath[MAXDIR];	
     FILE * F;
 	struct stat sizeGetter;
-	int count,i,id=0,fd,iter;
+	int count,i,id=m.id,fd,iter;
 	LockDirectory();
 	strcpy(File,m.data);
 		fprintf(stderr,"DEBUG: File Data %s %s \n",File,m.data);
 	fd = FindFileId(File);
-	if(fd<0)
+	if(fd<0 || files[fd].Op=='U')
 	{
 		UnLockDirectory();
 		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id,'D'),'E');
@@ -416,6 +417,8 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	UnLockDirectory();
 	LockFile(fd);
 	files[fd].Op='D';
+	files[fd].am++'
+	UnLockFile(fd);
 	memset(FilePath,0,MAXDIR);
 	sprintf(FilePath,"%s/%s",DirectoryPath,File);	
 	F = fopen(FilePath,"r");
@@ -448,9 +451,16 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength-4);
 		SendMessage(sendfd,m,address);
-		files[fd].perc += iter;		
+		LockFile(fd);
+		files[fd].Op ='D';
+		if(files[fd].perc<iter*i) files[fd].perc=iter*i;
+		UnLockFile(fd);
 	}
+	LockFile(fd);
+	
+	files[fd].Op ='D';
 	files[fd].perc = 1000;
+	UnLockFile(fd);
 	//CALC md5 sum of file	
 	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
 	m = PrepareMessage(m.id,'F');	
@@ -461,8 +471,10 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 		continue;
 	}
 	fclose(F);
-	files[fd].Op = 'N';
-	files[fd].perc = 0;
+	LockFile(fd);
+	files[fd].am--;
+	if(files[fd].am>0)files[fd].Op = 'N';
+	if(files[fd].am>0)files[fd].perc = 0;
 	UnLockFile(fd);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
@@ -496,7 +508,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char File[dataLength], md5_sum[MD5_LEN];
 	FILE* F;
 	char FilePath[MAXDIR];
-	int i,flag=0,id=0;
+	int i,flag=0,id=m.id;
 	uint32_t chunk;
 	int size;
 	strcpy(File,m.data);
@@ -582,7 +594,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* name = m.data;
-	int i,id=0;
+	int i,id=m.id;
 	LockDirectory();
 	m.id = GenerateOpID(&id,'M')
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
@@ -632,7 +644,7 @@ strcat(FilePath,name);
 void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* Dir;	
-	int size,truesize=0,i,j,id=0;
+	int size,truesize=0,i,j,id=m.id;
 	while(1)
 	{
 	
@@ -745,7 +757,7 @@ void MessageQueueWork(int listenfd,int sendfd)
 			pthread_create(&thread,NULL,HandleMessage,(void*)&t);
 		}
 }
-void RestoreOperation
+
 void usage(char* c)
 {
 	fprintf(stderr,"USAGE: %s port directory\n",c);
@@ -790,7 +802,9 @@ int main(int argc,char** argv)
 			sscanf(filebuf,"%d %c",&fid,&c);
 			RetiredIDs[fid]=c;
 			if(minid <fid+1) minid=fid+1;
+			
 		}
+		op = minid;
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
 		pthread_mutex_init(&opID,NULL);
@@ -817,6 +831,7 @@ if(S_ISDIR(st.st_mode)) continue;
 			strcpy((char*)(files[DirLen].Name),dirStruct->d_name);
 			files[DirLen].Op='N';
 			files[DirLen].perc=0;
+			files[DirLen].am = 0;
 			DirLen++;
 		}
 		fprintf(stdout,"Prepared Directory List\n");
