@@ -373,7 +373,7 @@ ssize_t bulk_write(int fd, char *buf, size_t count)
 	}while(count>0);
 	return len ;
 }
-void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server)
+void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart)
 {
 	struct Message m = PrepareMessage(0,'L');
 	char* Dir;
@@ -425,7 +425,7 @@ void RenameFile(char* FilePath)
 				perror("Error renaming the file");
 		}
 }
-void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
+void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,int restart)
 {
 	
 	char File[dataLength],md5_sum[MD5_LEN];
@@ -495,7 +495,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
 	}
 	
 }
-void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath)
+void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath,int restart)
 {
 	struct Message m = PrepareMessage(0,'U');
 	int size; //getsize
@@ -561,7 +561,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	
 	
 }
-void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,char* path)
+void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,int restart)
 {
 	struct Message m = PrepareMessage(0,'M');
 	strcpy(m.data,path);
@@ -622,6 +622,50 @@ void StartListening(int* listenfd)
 	pthread_t thread;
 		pthread_create(&thread,NULL,MessageQueueWork,(void*)listenfd);
 }
+struct ThreadArg
+{
+	int sendfd;
+	int listenfd;
+	struct sockaddr_in address;
+	char data[MAXBUF];
+	int restart;
+	char Kind;
+};
+void* BeginOperation(void * arg)
+{
+	struct ThreadArg* trarg = (struct ThreadArg*)arg;
+	if(trarg.Kind=='D')
+	{
+		DownloadFile(trarg.sendfd,trarg.listenfd,trarg.address,trarg.data,trarg.restart);
+	}
+	else if(trarg.Kind=='U')
+	{
+		UploadFile(trarg.sendfd,trarg.listenfd,trarg.address,trarg.data,trarg.restart);
+	}
+	else if(trarg.Kind=='M')
+	{
+		DeleteFile(trarg.sendfd,trarg.listenfd,trarg.address,trarg.data,trarg.restart);
+	}
+	else if(trarg.Kind=='L')
+	{
+		ViewDirectory(trarg.sendfd,trarg.listenfd,trarg.address,trarg.restart);
+	}
+	
+	return NULL;
+
+}
+void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* data,char Kind,int restart,struct ThreadArg* trarg)
+{
+	trarg = {.sendfd = sendfd,.listenfd=listenfd,.address = address,.restart=restart,.Kind=Kind};
+	strcpy(trarg.data,data);
+	pthread_t thread;
+	pthread_create(&thread,&BeginOperation,(void*)(trarg));
+}
+void RestoreOperations()
+{
+	
+}
+
 int main(int argc,char** argv)
 {
 	int listenfd,broadcastfd,sendfd;
@@ -648,8 +692,9 @@ int main(int argc,char** argv)
 	}
 	StartListening(&listenfd);
 	
-	
+	RestoreOperations();
 	print_ip((long int)server.sin_addr.s_addr);
+	struct ThreadArg t;
 	while(1)
 	{
 		
@@ -660,24 +705,24 @@ int main(int argc,char** argv)
 		{
 			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
-			DeleteFile(sendfd,listenfd,server,buf);
+			StartOperation(sendfd,listenfd,server,buf,'M',0,&t);
 		}
 		else if(strcmp(buf,"LS") == 0)
 		{
 			
-			ViewDirectory(sendfd,listenfd,server);
+			StartOperation(sendfd,listenfd,server,"",'L',0,&t);
 		}
 		else if(strcmp(buf,"DOWNLOAD") == 0)
 		{
 			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
-			DownloadFile(sendfd,listenfd,server,buf);
+			StartOperation(sendfd,listenfd,server,buf,'D',0,&t);
 		}
 		else if(strcmp(buf,"UPLOAD")==0)
 		{
 			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
-			UploadFile(sendfd,listenfd,server,buf);
+			StartOperation(sendfd,listenfd,server,buf,'U',0,&t);
 		}
 	}
 	
