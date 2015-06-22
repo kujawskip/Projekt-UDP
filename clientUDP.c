@@ -656,7 +656,11 @@ void* BeginOperation(void * arg)
 }
 void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* data,char Kind,int restart,struct ThreadArg* trarg)
 {
-	trarg = {->sendfd = sendfd,->listenfd=listenfd,->address = address,->restart=restart,.Kind=Kind};
+	trarg->sendfd = sendfd;
+	trarg->listenfd=listenfd;
+	memcpy((void*)&(trarg.address),(void*)&address,sizeof(struct sockaddr_in));
+	trarg->restart=restart;
+	trarg.Kind=Kind;
 	strcpy(trarg->data,data);
 	pthread_t thread;
 	pthread_create(&thread,NULL,BeginOperation,(void*)(trarg));
@@ -666,11 +670,11 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 	char buf[MAXBUF];
 	char fdata[MAXFILE];
 	char fkind;
-	int fid,pos,temp;
+	int fid,temp;
 		while(1)
 		{
 			struct ThreadArg trarg;
-		pos = ftell(OperationSaver);
+		
 		if(ReadLine(OperationSaver,buf)<0) return;
 		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
 			if(0==temp)
