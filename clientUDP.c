@@ -700,6 +700,8 @@ int main(int argc,char** argv)
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
+		OperationSaver = fopen(savefile,"a+");
+		fclose(OperationSaver);
 	OperationSaver = fopen(savefile,"r+");
 	memset(&server,0,sizeof(struct sockaddr_in));
 	pthread_mutex_init(&SuperMutex,NULL);
