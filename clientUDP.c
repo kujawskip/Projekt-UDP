@@ -639,7 +639,7 @@ struct ThreadArg
 void* BeginOperation(void * arg)
 {
 	struct ThreadArg trarg = *((struct ThreadArg*)arg);
-	fprintf(stderr,"DEBUG: trarg %d %d %s %c %d\n",trarg.senfd,trarg.listenfd,trarg.data,trarg.Kind,trarg.restart);
+	fprintf(stderr,"DEBUG: trarg %d %d %s %c %d\n",trarg.sendfd,trarg.listenfd,trarg.data,trarg.Kind,trarg.restart);
 	if(trarg.Kind=='D')
 	{
 		DownloadFile(trarg.sendfd,trarg.listenfd,trarg.address,trarg.data,trarg.restart);
