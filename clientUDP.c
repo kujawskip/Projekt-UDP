@@ -661,13 +661,14 @@ void* BeginOperation(void * arg)
 }
 void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* data,char Kind,int restart,struct ThreadArg* trarg)
 {
+	pthread_t thread;
 	trarg->sendfd = sendfd;
 	trarg->listenfd=listenfd;
 	memcpy((void*)&(trarg->address),(void*)&address,sizeof(struct sockaddr_in));
 	trarg->restart=restart;
 	trarg->Kind=Kind;
 	strcpy(trarg->data,data);
-	pthread_t thread;
+	fprintf(stderr,"Starting thread %c %d \n",Kind,restart);
 	pthread_create(&thread,NULL,BeginOperation,(void*)(trarg));
 }
 void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
@@ -686,6 +687,7 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 		fprintf(stderr,"DEBUG: id:%d kind:%c data:%s finished:%d\n",fid,fkind,fdata,temp);
 			if(0==temp)
 			{
+				fprintf(stderr,"DEBUG: Preparing to Start Op\n");
 				StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
 			}
 		}
