@@ -596,7 +596,7 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char* name = m.data;
 	int i,id=m.id;
 	LockDirectory();
-	m.id = GenerateOpID(&id,'M')
+	m.id = GenerateOpID(&id,'M');
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
@@ -804,7 +804,7 @@ int main(int argc,char** argv)
 			if(minid <fid+1) minid=fid+1;
 			
 		}
-		op = minid;
+		opid = minid;
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
 		pthread_mutex_init(&opID,NULL);
