@@ -88,7 +88,7 @@ pthread_mutex_t opID;
 volatile int opid;
 uint32_t GenerateOpID(int* id)
 {
-	if(id>0) return id;
+	if(*id>0) return *id;
 	pthread_mutex_lock(&opID);
 	*id = opid++;
 	pthread_mutex_unlock(&opID);
