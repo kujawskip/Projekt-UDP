@@ -59,7 +59,7 @@ int ReadLine(FILE* F,char* buf)
 		if(i==0) return 0;
 		if(i<0) return -1;
 		buf+=i;
-		if(*(buf-1)=='\n') return 0;
+		if(*(buf-1)=='\n') return 1;
 	}
 }
 ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
@@ -670,12 +670,13 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 	char buf[MAXBUF];
 	char fdata[MAXFILE];
 	char fkind;
-	int fid,temp;
+	int fid,pos,temp;
 		while(1)
 		{
 			struct ThreadArg trarg;
 		
-		if(ReadLine(OperationSaver,buf)<0) return;
+		if(pos=ReadLine(OperationSaver,buf)<0) return;
+		if(pos==0) return;
 		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
 			if(0==temp)
 			{
