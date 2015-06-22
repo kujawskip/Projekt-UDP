@@ -380,6 +380,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	char* Dir;
 	int size,i,chunk;
 	SendMessage(sendfd,m,server);
+	if(restart>0) m=PrepareMessage(restart,'R');
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	
 	if(m.Kind != 'L')
@@ -440,6 +441,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,i
 	m = PrepareMessage(0,'D');
 	strcpy(m.data,File);
 	fprintf(stderr,"DEBUG: prepared file %s to write\n",File);
+	if(restart>0) m=PrepareMessage(restart,'R');
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(m.Kind!='D')
@@ -499,6 +501,7 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,i
 void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath,int restart)
 {
 	struct Message m = PrepareMessage(0,'U');
+	
 	int size; //getsize
 	//add filename and size to data;
 	char md5_sum[MD5_LEN];	
@@ -510,6 +513,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	SerializeNumber(size,m.data);
 	strcpy(m.data+4,FilePath);
 		count = 1+(((int)sizeGetter.st_size)/(dataLength-4));
+		if(restart>0) m=PrepareMessage(restart,'R');
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	SaveOperation(m.id,'U',FilePath,0);
