@@ -683,7 +683,7 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 		if(ReadLine(OperationSaver,buf)<=0) return;
 		
 		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
-		fprintf(stderr,"DEBUG: id:%d kind:%c data:%s finished:%d\n",fid,kind,fdata,temp);
+		fprintf(stderr,"DEBUG: id:%d kind:%c data:%s finished:%d\n",fid,fkind,fdata,temp);
 			if(0==temp)
 			{
 				StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
