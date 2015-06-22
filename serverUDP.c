@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <ctype.h>
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
@@ -22,7 +23,7 @@
 #define BACKLOG 3
 #define MAXFILE 1024
 #define MAXDIR 1024
-#include <ctype.h>
+
 #define STR_VALUE(val) #val
 #define STR(name) STR_VALUE(name)
 
@@ -480,7 +481,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	strcpy(File,m.data);
 	memset(FilePath,0,MAXDIR);
 	strcat(FilePath,DirectoryPath);
-	(FilePath,"/");
+	strcat(FilePath,"/");
 	strcat(FilePath,File);	
 	F = fopen(FilePath,"w+");
 	m = PrepareMessage(GenerateOpID(),'U');

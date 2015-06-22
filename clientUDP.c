@@ -13,6 +13,7 @@
 #include <netdb.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <ctype.h>
 #define ERR(source) (perror(source),\
 		     fprintf(stderr,"%s:%d\n",__FILE__,__LINE__),\
 			exit(EXIT_FAILURE))
@@ -511,6 +512,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	SaveOperation(m.id,'U',FilePath,0);
+	F = fopen(FilePath,"r");
 	if(m.Kind!='U')
 	{
 		///ERR
@@ -522,7 +524,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	{
 		if(i>0) sleepforseconds(1);
 		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,FilePath,m.id);
-		m = PrepareMessage(id,'U');
+		m = PrepareMessage(m.id,'U');
 		SerializeNumber(i,m.data);
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength-4);
@@ -629,6 +631,7 @@ int main(int argc,char** argv)
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
+	OperationSaver = fopen(savefile,"rw");
 	memset(&server,0,sizeof(struct sockaddr_in));
 	pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
