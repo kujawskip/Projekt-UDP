@@ -23,7 +23,6 @@
 #define MAXFILE 1024
 #define MAXDIR 1024
 #include <ctype.h>
-
 #define STR_VALUE(val) #val
 #define STR(name) STR_VALUE(name)
 
@@ -44,7 +43,6 @@ void sleepforseconds(int sec)
 	 }
 	 else ERR("SLEEP");
    }
-
 
 }
 int CalcFileMD5(char *file_name, char *md5_sum)
@@ -476,19 +474,17 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char File[dataLength], md5_sum[MD5_LEN];
 	FILE* F;
 	char FilePath[MAXDIR];
-	int i,fd;
+	int i;
 	uint32_t chunk;
 	int size;
 	strcpy(File,m.data);
 	memset(FilePath,0,MAXDIR);
-strcat(FilePath,DirectoryPath);
-strcat(FilePath,"/");
-strcat(FilePath,File);
-	
+	strcat(FilePath,DirectoryPath);
+	(FilePath,"/");
+	strcat(FilePath,File);	
 	F = fopen(FilePath,"w+");
 	m = PrepareMessage(GenerateOpID(),'U');
 	AddFile(File);
-	fd = DirLen-1;
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
@@ -521,20 +517,20 @@ strcat(FilePath,File);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
-		RenameFile(File);
+		RenameFile(FilePath);
 		return;
 	}
 
 	m = PrepareMessage(m.id,'F');
 	strcpy(m.data,md5_sum);
-	SendMessage(sendfd,m,server);
+	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	fclose(F);
 	
 	if(m.Kind!='C')
 	{
 		fprintf(stderr,"Error creating file %s\n",File);
-		rename(File,"err.tmp");//delete file;
+		RenameFile(FilePath);
 	}
 	else
 	{
@@ -571,7 +567,7 @@ strcat(FilePath,name);
 					//Delete file from disk
 			if(unlink(FilePath)<0)
 			{
-				fprintf(stderr,"File %s:");
+				fprintf(stderr,"File %s:",FilePath);
 				perror("Error unlinking the file");
 				
 				UnLockDirectory();
@@ -708,7 +704,7 @@ void print_ip(unsigned long int ip)
 }
 int main(int argc,char** argv)
 {
-		int listenfd,sendfd,i,otherfd;
+		int listenfd,sendfd;
 		struct sockaddr_in client;
 		
 		struct dirent* dirStruct;
@@ -744,7 +740,6 @@ int main(int argc,char** argv)
 		while(1)
 		{
 			struct stat st;
-
 			dirStruct = readdir(directory);
 			if(dirStruct == NULL)
 			{
@@ -752,7 +747,7 @@ int main(int argc,char** argv)
 			}
 			lstat(dirStruct->d_name, &st);
 if(S_ISDIR(st.st_mode)) continue;
-			strcpy(files[DirLen].Name,dirStruct->d_name);
+			strcpy((char*)(files[DirLen].Name),dirStruct->d_name);
 			files[DirLen].Op='N';
 			files[DirLen].perc=0;
 			DirLen++;

@@ -32,13 +32,12 @@
 #define MD5_LEN 32
 #define savefile "savefile.dat"
 FILE* OperationSaver;
-ssize_t bulk_fread(FILE* F,char* buf,size_t count)
+ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 {
 	int c;
 	size_t len=0;
 	do
-	{
-		
+	{		
 		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
 		fprintf(stderr,"DEBUG: Fread %d msg: %s\n",c,buf);
 		if(c==0) break;
@@ -52,15 +51,14 @@ ssize_t bulk_fread(FILE* F,char* buf,size_t count)
 }
 int ReadLine(FILE* F,char* buf)
 {
-	char c;
 	int i;
 	while(1)
 	{
 		i = bulk_fread(F,buf,1);
-		if(i==0) return;
-		if(i<0) ERR("fread");
+		if(i==0) return 0;
+		if(i<0) return -1;
 		buf+=i;
-		if(*(buf-1)=='\n') return;
+		if(*(buf-1)=='\n') return 0;
 	}
 }
 ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
@@ -97,11 +95,11 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 		{
 		pos = ftell(OperationSaver);
 		if(ReadLine(OperationSaver,buf)<0) return;
-		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,&fdata,&temp);
+		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
 			if(id == fid)
 			{
 				fseek(OperationSaver,pos,SEEK_SET);
-				pos = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,kind,data,finished);
+				pos = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,Kind,data,finished);
 				bulk_fwrite(OperationSaver,buf,pos);
 				fseek(OperationSaver,0,SEEK_SET);
 				return;
@@ -110,12 +108,12 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 	}
 	else
 	{
-		struct stat sizegetter;
+		struct stat sizeGetter;
 		pos = fileno(OperationSaver);
 		fstat(pos,&sizeGetter);
 		temp = (int)sizeGetter.st_size;
 		fseek(OperationSaver,temp,SEEK_SET);
-		temp = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,kind,data,finished);
+		temp = sprintf(buf,"id:%d kind %c data:%s finished:%d\n",id,Kind,data,finished);
 		bulk_fwrite(OperationSaver,buf,temp);
 		fseek(OperationSaver,0,SEEK_SET);
 	}
@@ -422,7 +420,7 @@ void RenameFile(char* FilePath)
 		strcat(FileName,".err");
 		if(rename(FilePath,FileName)<0)
 		{
-			fprintf(stderr,"File %s:");
+			fprintf(stderr,"File %s:",FilePath);
 				perror("Error renaming the file");
 		}
 }
@@ -501,15 +499,11 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	struct Message m = PrepareMessage(0,'U');
 	int size; //getsize
 	//add filename and size to data;
-	char md5_sum[MD5_LEN];
-		
-
-
-	
+	char md5_sum[MD5_LEN];	
     FILE * F;
 	struct stat sizeGetter;
-	int count,i,id,fd,iter;
-	stat(File,&sizeGetter);
+	int count,i,id;
+	stat(FilePath,&sizeGetter);
 	size = (int)sizeGetter.st_size;
 	SerializeNumber(size,m.data);
 	strcpy(m.data+4,FilePath);
@@ -532,7 +526,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 		SerializeNumber(i,m.data);
 		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength-4);
-		SendMessage(sendfd,m,address);
+		SendMessage(sendfd,m,server);
 		
 		
 		
@@ -541,12 +535,12 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	m = PrepareMessage(m.id,'F');
 	
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&address,m.id,0);
+	ReceiveMessage(listenfd,&m,&server,m.id,0);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
 		m = PrepareMessage(m.id,'E');
-		SendMessage(sendfd,m,address);
+		SendMessage(sendfd,m,server);
 		return;
 	}
 	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
@@ -554,12 +548,12 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	if(0!=strcmp(m.data,md5_sum))
 	{
 		m = PrepareMessage(m.id,'E');
-		SendMessage(sendfd,m,address);
+		SendMessage(sendfd,m,server);
 		return;
 	}
 	m = PrepareMessage(m.id,'C');
 	
-	SendMessage(sendfd,m,address);
+	SendMessage(sendfd,m,server);
 	
 	//if(m.data!=md5sum) uncorrect 
 	
