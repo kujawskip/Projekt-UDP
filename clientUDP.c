@@ -503,7 +503,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	char md5_sum[MD5_LEN];	
     FILE * F;
 	struct stat sizeGetter;
-	int count,i,id;
+	int count,i;
 	stat(FilePath,&sizeGetter);
 	size = (int)sizeGetter.st_size;
 	SerializeNumber(size,m.data);
@@ -631,7 +631,7 @@ int main(int argc,char** argv)
 			usage(argv[0]);
 			return EXIT_FAILURE;
 		}
-	OperationSaver = fopen(savefile,"rw");
+	OperationSaver = fopen(savefile,"w+");
 	memset(&server,0,sizeof(struct sockaddr_in));
 	pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
