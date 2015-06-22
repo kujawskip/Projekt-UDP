@@ -440,9 +440,10 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,i
 	strcpy(File,path);
 	F = fopen(File,"w+");
 	m = PrepareMessage(0,'D');
+		if(restart>0) m=PrepareMessage(restart,'R');
 	strcpy(m.data,File);
 	fprintf(stderr,"DEBUG: prepared file %s to write\n",File);
-	if(restart>0) m=PrepareMessage(restart,'R');
+
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(m.Kind!='D')
@@ -509,12 +510,13 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
     FILE * F;
 	struct stat sizeGetter;
 	int count,i;
+	if(restart>0) m=PrepareMessage(restart,'R');
 	stat(FilePath,&sizeGetter);
 	size = (int)sizeGetter.st_size;
 	SerializeNumber(size,m.data);
 	strcpy(m.data+4,FilePath);
 		count = 1+(((int)sizeGetter.st_size)/(dataLength-4));
-		if(restart>0) m=PrepareMessage(restart,'R');
+		
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(restart==0) SaveOperation(m.id,'U',FilePath,0);
