@@ -403,7 +403,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	if(fd<0)
 	{
 		UnLockDirectory();
-		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id);,'E');
+		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id),'E');
 		return;
 	}
 	UnLockDirectory();
@@ -416,7 +416,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	fprintf(stderr,"Received file stats for downloading\n");
 	while(1)
 	{
-	m = PrepareMessage(GenerateOpID(&id);,'D');
+	m = PrepareMessage(GenerateOpID(&id),'D');
 	
 	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",FilePath,id);
 		//getfile size and put it into data
@@ -502,7 +502,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	AddFile(File);
 	while(1)
 	{
-	m = PrepareMessage(GenerateOpID(&id);,'U');
+	m = PrepareMessage(GenerateOpID(&id),'U');
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
@@ -577,7 +577,7 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char* name = m.data;
 	int i,id=0;
 	LockDirectory();
-	m.id = GenerateOpID(&id);
+	m.id = GenerateOpID(&id)
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
@@ -645,7 +645,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	
 	truesize++;
 	fprintf(stderr,"DEBUG: %d %s \n",truesize,Dir);
-	m = PrepareMessage(GenerateOpID(&id);,'L');
+	m = PrepareMessage(GenerateOpID(&id),'L');
 	SerializeNumber(truesize,m.data);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
