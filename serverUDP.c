@@ -47,6 +47,26 @@ void sleepforseconds(int sec)
    }
 
 }
+ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
+{
+	int c;
+	size_t len=0;
+	len = strlen(buf);
+	if(count>len) count=len;
+	len = 0;
+	do
+	{
+		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
+		fflush(fd);
+		fprintf(stderr,"DEBUG: Fwrite %d msg: %s\n",c,buf);
+		if(c<0) return c;
+		buf+=c;
+		len+=c;
+		count-=c;
+	}
+	while(count>0);
+	return len ;
+}
 int CalcFileMD5(char *file_name, char *md5_sum)
 {
     #define MD5SUM_CMD_FMT "md5sum %." STR(PATH_LEN) "s 2>/dev/null"
@@ -341,26 +361,7 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	while(count>0);
 	return len ;
 }
-ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
-{
-	int c;
-	size_t len=0;
-	len = strlen(buf);
-	if(count>len) count=len;
-	len = 0;
-	do
-	{
-		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
-		fflush(fd);
-		fprintf(stderr,"DEBUG: Fwrite %d msg: %s\n",c,buf);
-		if(c<0) return c;
-		buf+=c;
-		len+=c;
-		count-=c;
-	}
-	while(count>0);
-	return len ;
-}
+
 ssize_t bulk_write(int fd, char *buf, size_t count)
 {
 	int c;
@@ -575,7 +576,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		AddFile(File);
 	}
 	return;
-}
+	}
 }
 
 void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
