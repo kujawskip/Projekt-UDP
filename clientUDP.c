@@ -661,9 +661,23 @@ void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* dat
 	pthread_t thread;
 	pthread_create(&thread,&BeginOperation,(void*)(trarg));
 }
-void RestoreOperations()
+void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 {
-	
+	char buf[MAXBUF];
+	char fdata[MAXFILE];
+	char fkind;
+	int fid,pos,temp;
+		while(1)
+		{
+			struct ThreadArg trarg;
+		pos = ftell(OperationSaver);
+		if(ReadLine(OperationSaver,buf)<0) return;
+		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
+			if(0==temp)
+			{
+				StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
+			}
+		}
 }
 
 int main(int argc,char** argv)
@@ -692,7 +706,7 @@ int main(int argc,char** argv)
 	}
 	StartListening(&listenfd);
 	
-	RestoreOperations();
+	RestoreOperations(sendfd,listenfd,server);
 	print_ip((long int)server.sin_addr.s_addr);
 	struct ThreadArg t;
 	while(1)

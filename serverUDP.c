@@ -86,10 +86,11 @@ volatile struct DirFile files[MAXDIR];
 volatile int DirLen;
 pthread_mutex_t opID;
 int opid;
-uint32_t GenerateOpID()
+uint32_t GenerateOpID(int* id);
 {
+	if(id>0) return id;
 	pthread_mutex_lock(&opID);
-	int c = opid++;
+	id = opid++;
 	pthread_mutex_unlock(&opID);
 	return c;
 }
@@ -394,7 +395,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	char FilePath[MAXDIR];	
     FILE * F;
 	struct stat sizeGetter;
-	int count,i,id,fd,iter;
+	int count,i,id=0,fd,iter;
 	LockDirectory();
 	strcpy(File,m.data);
 		fprintf(stderr,"DEBUG: File Data %s %s \n",File,m.data);
@@ -402,7 +403,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	if(fd<0)
 	{
 		UnLockDirectory();
-		PrepareAndSendMessage(sendfd,address,GenerateOpID(),'E');
+		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id);,'E');
 		return;
 	}
 	UnLockDirectory();
@@ -413,17 +414,24 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	F = fopen(FilePath,"r");
 	stat(File,&sizeGetter);
 	fprintf(stderr,"Received file stats for downloading\n");
-	m = PrepareMessage(GenerateOpID(),'D');
-	id = m.id;
+	while(1)
+	{
+	m = PrepareMessage(GenerateOpID(&id);,'D');
+	
 	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",FilePath,id);
 		//getfile size and put it into data
 	SerializeNumber((uint32_t)sizeGetter.st_size,m.data);
 	fprintf(stderr,"Preparing to send filesize %ld\n",sizeGetter.st_size);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
+		if(m.Kind == 'R')
+	{
+		continue;
+	}
 	count = 1+(((int)sizeGetter.st_size)/(dataLength-4));
 	iter = 1000/count;
 	///Dziel plik na fragmenty a następnie rozsyłaj
+
 	for(i =0;i<count;i++)
 	{
 		if(i>0) sleepforseconds(1);
@@ -441,6 +449,10 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	m = PrepareMessage(m.id,'F');	
 	SendMessage(sendfd,m,address);	
 	ReceiveMessage(listenfd,&m,&address,m.id);
+		if(m.Kind == 'R')
+	{
+		continue;
+	}
 	fclose(F);
 	files[fd].Op = 'N';
 	files[fd].perc = 0;
@@ -461,6 +473,8 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	}
 	m = PrepareMessage(m.id,'C');
 	SendMessage(sendfd,m,address);
+	return;
+	}
 }
 void AddFile(char* FileName)
 {
@@ -475,7 +489,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	char File[dataLength], md5_sum[MD5_LEN];
 	FILE* F;
 	char FilePath[MAXDIR];
-	int i;
+	int i,flag=0,id=0;
 	uint32_t chunk;
 	int size;
 	strcpy(File,m.data);
@@ -484,8 +498,11 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	strcat(FilePath,"/");
 	strcat(FilePath,File);	
 	F = fopen(FilePath,"w+");
-	m = PrepareMessage(GenerateOpID(),'U');
+	
 	AddFile(File);
+	while(1)
+	{
+	m = PrepareMessage(GenerateOpID(&id);,'U');
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
@@ -504,6 +521,10 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	while(1)
 	{
 		ReceiveMessage(listenfd,&m,&address,m.id);
+		if(m.Kind == 'R')
+	{
+		flag=1;
+	}
 		if(m.Kind == 'F')
 		{
 			break;
@@ -513,6 +534,11 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		bulk_fwrite(F,m.data+4,dataLength);
 		//TODO: Write in a file in exact position
 		
+	}
+	if(flag==1)
+	{
+		flag=0;
+		continue;
 	}
 	//CALC md5 sum of file
 	if(CalcFileMD5(FilePath,md5_sum)==0)
@@ -526,6 +552,11 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	strcpy(m.data,md5_sum);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
+	if(m.Kind == 'R')
+	{
+		continue;
+	}
+	
 	fclose(F);
 	
 	if(m.Kind!='C')
@@ -537,14 +568,16 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	{
 		AddFile(File);
 	}
+	return;
+}
 }
 
 void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* name = m.data;
-	int i;
+	int i,id=0;
 	LockDirectory();
-	m.id = GenerateOpID();
+	m.id = GenerateOpID(&id);
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
@@ -592,7 +625,10 @@ strcat(FilePath,name);
 void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* Dir;	
-	int size,truesize=0,i,j;
+	int size,truesize=0,i,j,id=0;
+	while(1)
+	{
+	
 	LockDirectory();
 	size = DirLen*(dataLength);
 	Dir = (char*)malloc(size*sizeof(char));
@@ -609,10 +645,14 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	
 	truesize++;
 	fprintf(stderr,"DEBUG: %d %s \n",truesize,Dir);
-	m = PrepareMessage(GenerateOpID(),'L');
+	m = PrepareMessage(GenerateOpID(&id);,'L');
 	SerializeNumber(truesize,m.data);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
+	if(m.Kind == 'R')
+	{
+		continue;
+	}
 	if(m.Kind == 'E')
 	{
 		free(Dir);
@@ -633,6 +673,8 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	}
 	PrepareAndSendMessage(sendfd,address,m.id,'F');
 	free(Dir);
+	return;
+	}
 }
 struct Thread_Arg
 {
