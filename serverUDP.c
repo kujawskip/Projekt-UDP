@@ -73,7 +73,7 @@ void RenameFile(char* FilePath)
 		strcat(FileName,".err");
 		if(rename(FilePath,FileName)<0)
 		{
-			fprintf(stderr,"File %s:");
+			fprintf(stderr,"File %s:",FilePath);
 				perror("Error renaming the file");
 		}
 }
@@ -273,7 +273,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	while(1)
 	{
 	WaitOnSuper();
-	fprintf(stderr,"Regular passed through super (Expected id= %d\n");
+	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 	WaitOnMessage();
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
@@ -381,8 +381,8 @@ int FindFileId(char* name)
 	int i;
 	for(i=0;i<DirLen;i++)
 	{
-		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,files[i].Name);
-		if(0==strcmp(name,files[i].Name))
+		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,(char*)(files[i].Name));
+		if(0==strcmp(name,(char*)(files[i].Name)))
 		{
 			return i;
 		}
@@ -468,13 +468,12 @@ void AddFile(char* FileName)
 	LockDirectory();
 	files[DirLen].Op='N';
 	files[DirLen].perc=0;
-	strcpy(files[DirLen].Name,FileName);
+	strcpy((char*)(files[DirLen].Name),FileName);
 	UnLockDirectory();
 }
 void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
-	char File[dataLength];
-	
+	char File[dataLength], md5_sum[MD5_LEN];
 	FILE* F;
 	char FilePath[MAXDIR];
 	int i,fd;
@@ -488,13 +487,8 @@ strcat(FilePath,File);
 	
 	F = fopen(FilePath,"w+");
 	m = PrepareMessage(GenerateOpID(),'U');
-	LockDirectory();
-	fd = DirLen;
-	files[fd].Op = 'U';
-	files[fd].perc = 0;
-	strcpy(files[fd].Name,File);
-	DirLen++;
-	UnLockDirectory();
+	AddFile(File);
+	fd = DirLen-1;
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind!='C')
@@ -524,7 +518,7 @@ strcat(FilePath,File);
 		
 	}
 	//CALC md5 sum of file
-		if(CalcFileMD5(FilePath,md5_sum)==0)
+	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
 		RenameFile(File);
@@ -557,8 +551,8 @@ void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
-		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,files[i].Name);
-		if(0==strcmp(name,files[i].Name))
+		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,(char*)(files[i].Name));
+		if(0==strcmp(name,(char*)(files[i].Name)))
 		{
 			char FilePath[MAXDIR];
 memset(FilePath,0,MAXDIR);
