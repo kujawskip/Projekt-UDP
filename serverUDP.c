@@ -121,7 +121,6 @@ uint32_t GenerateOpID(int* id,char TaskType)
 	pthread_mutex_lock(&opID);
 	*id = opid++;
 	sprintf(buf,"%d %c\n",*id,TaskType);
-	fprintf(stderr,"DEBIG: Printed %d %c to buf\n",*id,TaskType);
 	bulk_fwrite(TaskReporter,buf,6);
 	pthread_mutex_unlock(&opID);
 	return *id;
@@ -131,13 +130,11 @@ pthread_mutex_t directorymutex;
 pthread_mutex_t filemutex[MAXDIR];
 void LockDirectory()
 {
-	fprintf(stderr,"Preparing to lock directory\n");
 	pthread_mutex_lock(&directorymutex);
 }
 void UnLockDirectory()
 {
 	pthread_mutex_unlock(&directorymutex);
-	fprintf(stderr,"Unlocking directory\n");
 }
 void LockFile(int id)
 {
@@ -152,8 +149,6 @@ void UnLockFile(int id)
 	pthread_mutex_unlock(&filemutex[id]);
 	UnLockDirectory();
 }
-
-
 int DecodeFile(char* buf,struct DirFile f)
 {
 	switch(f.Op)
@@ -179,10 +174,6 @@ struct Message PrepareMessage(uint32_t id,char type)
 {
 	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
 	memset(m.data,0,dataLength);
-	if(m.responseport==0)
-	{
-			fprintf(stderr,"DEBUG: response port = 0 (listenport = %d) \n",listenport);
-	}
 	return m;
 }
 void SerializeNumber(int number,char* buf)
@@ -212,7 +203,6 @@ void DeserializeMessage(char* buf,struct Message* m)
 	{
 		((char*)&(m->responseport))[i] = buf[i+5];
 	}
-
 	m->id = DeserializeNumber(buf+1);
 	for(i=0;i<dataLength;i++) m->data[i] = buf[i+9];
 }
@@ -243,7 +233,6 @@ void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
 	m.responseport = listenport;
 	memset(MessageBuf,0,MAXBUF);
 	SerializeMessage(MessageBuf,m);
-	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(addr)))<0) ERR("send:");	
 	
 }
@@ -277,14 +266,11 @@ void WakeSuper()
 void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
-	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
 	while(1)
 	{
-		fprintf(stderr,"DEBUG Super\n");
 		WaitOnMessage();
-		fprintf(stderr,"Super passed mutex\n");
 		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
@@ -296,7 +282,6 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0 || (m->id<minid && m->Kind == 'R'))
 		{
 	
@@ -311,18 +296,13 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		fprintf(stderr,"Changing port from %d to %d\n",addr->sin_port,m->responseport);
 		addr->sin_port = m->responseport;
-
 		WakeMessage();
 		return;
-		}
-		
-	
+		}	
 		WakeSuper();
 		WakeMessage();
 		sleep(1);
-		fprintf(stderr,"Waiting on Gate");
 		WaitOnGate();
 	}
 }
@@ -335,7 +315,6 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	while(1)
 	{
 	WaitOnSuper();
-	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 	WaitOnMessage();
 	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 	{
@@ -346,7 +325,6 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		}
 		else ERR("RECV");
 	}
-	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
 	if(m->id==expectedid)
@@ -382,9 +360,9 @@ int makesocket(int type,int flag)
 	if(flag>0) if (setsockopt(socketfd, SOL_SOCKET, flag,&t, sizeof(t))) ERR("setsockopt");
 	return socketfd;
 }
-int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
-	struct sockaddr_in addr;
-	
+int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag)
+{
+	struct sockaddr_in addr;	
 	int socketfd = makesocket(type,flag);
 	memset(&addr, 0, sizeof(struct sockaddr_in));
 	addr.sin_family = AF_INET;
@@ -392,7 +370,7 @@ int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 	addr.sin_addr.s_addr = htonl(addres);
 	if(bind(socketfd,(struct sockaddr*) &addr,sizeof(addr)) < 0)  ERR("bind");
 	if(SOCK_STREAM==type)
-		if(listen(socketfd, BACKLOG) < 0) ERR("listen");
+	if(listen(socketfd, BACKLOG) < 0) ERR("listen");
 	return socketfd;
 }
 ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
@@ -401,10 +379,8 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	size_t len=0;
 	memset(buf,0,count);
 	do
-	{
-		
-		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
-		
+	{		
+		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));		
 		if(c==0) break;
 		if(c<0) return c;
 		buf+=c;
@@ -478,15 +454,11 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	fprintf(stderr,"Received file stats for downloading\n");
 	while(1)
 	{
-	m = PrepareMessage(GenerateOpID(&id,'D'),'D');
-	
-	fprintf(stderr,"Initializing downloading of a file %s generated id: %d\n",FilePath,id);
-		//getfile size and put it into data
+	m = PrepareMessage(GenerateOpID(&id,'D'),'D');	
 	SerializeNumber((uint32_t)sizeGetter.st_size,m.data);
-	fprintf(stderr,"Preparing to send filesize %ld\n",sizeGetter.st_size);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
-		if(m.Kind == 'R')
+	if(m.Kind == 'R')
 	{
 		continue;
 	}
@@ -497,10 +469,8 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	for(i =0;i<count;i++)
 	{
 		if(i>0) sleepforseconds(1);
-		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,File,m.id);
 		m = PrepareMessage(id,'D');
 		SerializeNumber(i,m.data);
-		fprintf(stderr,"DEBUG: Preparing Read from file\n");
 		bulk_fread(F,m.data+4,dataLength-4);
 		SendMessage(sendfd,m,address);
 		LockFile(fd);
@@ -514,11 +484,10 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	files[fd].perc = 1000;
 	UnLockFile(fd);
 	//CALC md5 sum of file	
-	fprintf(stderr,"DEBUG: Sent whole file id: %d filename %s \n",m.id,File);
 	m = PrepareMessage(m.id,'F');	
 	SendMessage(sendfd,m,address);	
 	ReceiveMessage(listenfd,&m,&address,m.id);
-		if(m.Kind == 'R')
+	if(m.Kind == 'R')
 	{
 		continue;
 	}
@@ -530,12 +499,10 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	UnLockFile(fd);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
-		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
 		m = PrepareMessage(m.id,'E');
 		SendMessage(sendfd,m,address);
 		return;
 	}
-	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
 	if(0!=strcmp(m.data,md5_sum))
 	{
 		m = PrepareMessage(m.id,'E');
@@ -548,8 +515,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	}
 }
 void AddFile(char* FileName)
-{
-	
+{	
 	LockDirectory();
 	files[DirLen].Op='N';
 	files[DirLen].perc=0;
@@ -569,133 +535,113 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	size = DeserializeNumber(m.data);
 	strcpy(File,m.data+4);
 	memset(FilePath,0,MAXDIR);
-	strcat(FilePath,DirectoryPath);
-	strcat(FilePath,"/");
-	strcat(FilePath,File);	
-	
+	if(sprintf(FilePath,"%s/%s",DirectoryPath,File)<0)
+	{
+		perror("sprintf");
+		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id,'U'),'E');
+		break;
+	}
 	F = fopen(FilePath,"w+");
 	if(F==NULL)
 	{
 		fprintf(stderr,"Error in file %s\n",FilePath);
 		perror("FILE");
-		m = PrepareMessage(GenerateOpID(&id,'U'),'E');
-		SendMessage(sendfd,m,address);
+		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id,'U'),'E');
 		return;
 	}
 	fprintf(stderr,"DEBUG: Opened %s for write\n",FilePath);
 	AddFile(File);
 	while(1)
 	{
-	m = PrepareMessage(GenerateOpID(&id,'U'),'U');
-	SendMessage(sendfd,m,address);
-	for(i=0;i<size;i++)
-	{
-		fwrite(" ",1,1,F);
-	}
-	fseek(F,0,SEEK_SET);
-	
-	while(1)
-	{
-		ReceiveMessage(listenfd,&m,&address,m.id);
-		if(m.Kind == 'R')
-	{
-		flag=1;
-	}
-		if(m.Kind == 'F')
+		m = PrepareMessage(GenerateOpID(&id,'U'),'U');
+		SendMessage(sendfd,m,address);
+		for(i=0;i<size;i++)	fwrite(" ",1,1,F);
+		fseek(F,0,SEEK_SET);	
+		while(1)
 		{
-			break;
+			ReceiveMessage(listenfd,&m,&address,m.id);
+			if(m.Kind == 'R') 
+			{
+				flag=1;
+				break;
+			}
+			if(m.Kind == 'F') break;
+			chunk = DeserializeNumber(m.data);
+			fseek(F,chunk*(dataLength-4),SEEK_SET);
+			bulk_fwrite(F,m.data+4,dataLength);
 		}
-		chunk = DeserializeNumber(m.data);
-		fseek(F,chunk*(dataLength-4),SEEK_SET);
-		bulk_fwrite(F,m.data+4,dataLength);
-		//TODO: Write in a file in exact position
-		
-	}
-	if(flag==1)
-	{
-		flag=0;
-		continue;
-	}
-	//CALC md5 sum of file
-	if(CalcFileMD5(FilePath,md5_sum)==0)
-	{
-		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
-		RenameFile(FilePath);
+		if(flag==1)
+		{
+			flag=0;
+			continue;
+		}
+		if(CalcFileMD5(FilePath,md5_sum)==0)
+		{
+			fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
+			RenameFile(FilePath);
+			return;
+		}
+		m = PrepareMessage(m.id,'F');
+		strcpy(m.data,md5_sum);
+		SendMessage(sendfd,m,address);
+		ReceiveMessage(listenfd,&m,&address,m.id);
+		if(m.Kind == 'R') continue;	
+		fclose(F);	
+		if(m.Kind!='C')
+		{
+			fprintf(stderr,"Error creating file %s\n",File);
+			RenameFile(FilePath);
+		}
+		else AddFile(File);
 		return;
 	}
-
-	m = PrepareMessage(m.id,'F');
-	strcpy(m.data,md5_sum);
-	SendMessage(sendfd,m,address);
-	ReceiveMessage(listenfd,&m,&address,m.id);
-	if(m.Kind == 'R')
-	{
-		continue;
-	}
-	
-	fclose(F);
-	
-	if(m.Kind!='C')
-	{
-		fprintf(stderr,"Error creating file %s\n",File);
-		RenameFile(FilePath);
-	}
-	else
-	{
-		AddFile(File);
-	}
-	return;
-	}
 }
-
+void RemoveFile(int i)
+{
+	int j;
+	pthread_mutex_lock(&filemutex[i]);
+	for(j=i;j<DirLen-1;j++)
+	{
+		pthread_mutex_lock(&filemutex[j+1]);
+		files[j]=files[j+1];
+		pthread_mutex_unlock(&filemutex[j]);
+	}
+	pthread_mutex_unlock(&filemutex[j]);
+	pthread_mutex_destroy(&filemutex[j]);
+	DirLen--;
+}
 void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* name = m.data;
 	int i,id=m.id;
 	LockDirectory();
 	m.id = GenerateOpID(&id,'M');
-	fprintf(stderr,"DEBUG: Going to generate %d comparisons\n",DirLen);
 	for(i=0;i<DirLen;i++)
 	{
-		fprintf(stderr,"DEBUG: Comparing %s %s \n",name,(char*)(files[i].Name));
 		if(0==strcmp(name,(char*)(files[i].Name)))
 		{
 			char FilePath[MAXDIR];
-memset(FilePath,0,MAXDIR);
-strcat(FilePath,DirectoryPath);
-strcat(FilePath,"/");
-strcat(FilePath,name);
-			int j;
-	
-			
+			memset(FilePath,0,MAXDIR);
+			if(sprintf(FilePath,"%s/%s",DirectoryPath,name)<0)
+			{
+				perror("sprintf");
+				break;
+			}
 			if(files[i].Op != 'N')
 			{
 				fprintf(stderr,"File is busy %s \n",name);
 				UnLockDirectory();
 				break;
 			}
-					//Delete file from disk
 			if(unlink(FilePath)<0)
 			{
 				fprintf(stderr,"File %s:",FilePath);
-				perror("Error unlinking the file");
-				
+				perror("Error unlinking the file");				
 				UnLockDirectory();
 				break;
 			}
-			fprintf(stderr,"DEBUG: moving files %d %d \n",i,DirLen);
-			pthread_mutex_lock(&filemutex[i]);
-			for(j=i;j<DirLen-1;j++)
-			{
-				pthread_mutex_lock(&filemutex[j+1]);
-				files[j]=files[j+1];
-				pthread_mutex_unlock(&filemutex[j]);
-			}
-			pthread_mutex_unlock(&filemutex[j]);
-			pthread_mutex_destroy(&filemutex[j]);
-			DirLen--;
-			m = PrepareMessage(m.id,'C');
-			SendMessage(sendfd,m,address);
+			RemoveFile(i);
+			PrepareAndSendMessage(sendfd,address,m.id,'C');
 			UnLockDirectory();
 			return;
 		}
@@ -716,6 +662,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	memset(Dir,0,size);
 	if(Dir == NULL)
 	{
+		ERR("MALLOC");
 	}
 	for(i=0;i<DirLen;i++)
 	{
@@ -731,13 +678,11 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind == 'R')
-	{
-		
+	{		
 		continue;
 	}
 	if(m.Kind == 'E')
-	{
-		
+	{		
 		free(Dir);
 		return;
 	}
@@ -755,8 +700,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 		SendMessage(sendfd,m,address);
 	}
 	PrepareAndSendMessage(sendfd,address,m.id,'F');
-	free(Dir);
-	
+	free(Dir);	
 	return;
 	}
 }
@@ -770,8 +714,8 @@ struct Thread_Arg
 };
 void RegisterClient(int fd,int fd2,struct Message m,struct sockaddr_in client)
 {
-		client.sin_port = m.responseport;
-		SendMessage(fd2,m,client);
+	client.sin_port = m.responseport;
+	SendMessage(fd2,m,client);
 }
 
 void* HandleMessage(void* arg)
@@ -816,13 +760,12 @@ void MessageQueueWork(int listenfd,int sendfd)
 	{
 		pthread_t thread;
 		struct Thread_Arg t;
-		SuperReceiveMessage(listenfd,&m,&client);
-		
+		SuperReceiveMessage(listenfd,&m,&client);		
 		t.listenfd = listenfd;
 		t.sendfd = sendfd;
 		memcpy((void*)&(t.address),(void*)&client,sizeof(struct sockaddr_in));
 		memcpy((void*)&(t.m),(void*)&m,sizeof(struct Message));
-			pthread_create(&thread,NULL,HandleMessage,(void*)&t);
+		pthread_create(&thread,NULL,HandleMessage,(void*)&t);
 		Threads[ti++]=thread;
 	}
 	for(i=0;i<ti;i++) pthread_cancel(Threads[i]);
@@ -854,95 +797,98 @@ int ReadLine(FILE* F,char* buf)
 		if(*(buf-1)=='\n') return 1;
 	}
 }
+void InitializeFile(struct dirent* dirStruct,int id)
+{
+	strcpy((char*)(files[id].Name),dirStruct->d_name);
+	files[id].Op='N';
+	files[id].perc=0;
+	files[id].am = 0;
+}
+void InitializeMutexes()
+{
+	pthread_mutex_init(&directorymutex,NULL);
+	pthread_mutex_init(&SuperMutex,NULL);
+	pthread_mutex_init(&MessageMutex,NULL);
+	pthread_mutex_init(&opID,NULL);
+	pthread_mutex_init(&GateMutex,NULL);
+	WaitOnGate();
+	WaitOnSuper();
+}
 int main(int argc,char** argv)
 {
-		int listenfd,sendfd,i;
-		struct sockaddr_in client;
-		char filebuf[7];
-		struct dirent* dirStruct;
-		DIR* directory;
-		struct Message m;	
-struct sigaction new_sa;
-sigfillset(&new_sa.sa_mask);
-new_sa.sa_handler = SigActionHandler;
-new_sa.sa_flags = 0;
-memset(filebuf,0,7);
-if (sigaction(SIGINT, &new_sa, NULL)<0)
-{
-	ERR("SIGINT SIGACTION");
-}
-		opid=1;
-		doWork=1;
-		if(argc!=3)
+	int listenfd,sendfd,i;
+	struct sockaddr_in client;
+	char filebuf[7];
+	struct dirent* dirStruct;
+	DIR* directory;
+	struct Message m;	
+	struct sigaction new_sa;
+	sigfillset(&new_sa.sa_mask);
+	new_sa.sa_handler = SigActionHandler;
+	new_sa.sa_flags = 0;
+	memset(filebuf,0,7);
+	if (sigaction(SIGINT, &new_sa, NULL)<0)
+	{
+		ERR("SIGINT SIGACTION");
+	}
+	opid=1;
+	doWork=1;
+	if(argc!=3)
+	{
+		usage(argv[0]);
+		return EXIT_FAILURE;
+	}
+	realpath(argv[2],DirectoryPath);
+	directory = opendir(DirectoryPath);
+	if(directory == NULL)
+	{
+		ERR("Can't open directory");
+	}
+	TaskReporter = fopen("serversave.dat","a+");
+	minid=1;
+	RetiredIDs[0] = 'N';
+	while(ReadLine(TaskReporter,filebuf)>0)
+	{
+		int fid;
+		char c;
+		sscanf(filebuf,"%d %c",&fid,&c);
+		RetiredIDs[fid]=c;
+		if(minid <fid+1) minid=fid+1;			
+	}
+	opid = minid;
+	InitializeMutexes();
+	memset(&m,0,sizeof(struct Message));
+	memset(&client,0,sizeof(struct sockaddr_in));
+	listenport = htons(atoi(argv[1]));
+	if(listenport == 0)
+	{
+		ERR("PORT:");
+	}
+	while(1)
+	{
+		struct stat st;
+		dirStruct = readdir(directory);
+		if(dirStruct == NULL)
 		{
-			usage(argv[0]);
-			return EXIT_FAILURE;
+			break;
 		}
-		realpath(argv[2],DirectoryPath);
-		directory = opendir(DirectoryPath);
-		if(directory == NULL)
-		{
-			ERR("Can't open directory");
-		}
-		TaskReporter = fopen("serversave.dat","a+");
-		minid=1;
-		RetiredIDs[0] = 'N';
-		while(ReadLine(TaskReporter,filebuf)>0)
-		{
-			int fid;
-			char c;
-			sscanf(filebuf,"%d %c",&fid,&c);
-			RetiredIDs[fid]=c;
-			if(minid <fid+1) minid=fid+1;
-			
-		}
-		opid = minid;
-		pthread_mutex_init(&directorymutex,NULL);
-		pthread_mutex_init(&SuperMutex,NULL);
-		pthread_mutex_init(&MessageMutex,NULL);
-		pthread_mutex_init(&opID,NULL);
-		pthread_mutex_init(&GateMutex,NULL);
-		WaitOnGate();
-		WaitOnSuper();
-		memset(&m,0,sizeof(struct Message));
-		memset(&client,0,sizeof(struct sockaddr_in));
-		listenport = htons(atoi(argv[1]));
-		if(listenport == 0)
-		{
-			ERR("PORT:");
-		}
-		while(1)
-		{
-			struct stat st;
-			dirStruct = readdir(directory);
-			if(dirStruct == NULL)
-			{
-				break;
-			}
-			lstat(dirStruct->d_name, &st);
-			if(S_ISDIR(st.st_mode)) continue;
-			strcpy((char*)(files[DirLen].Name),dirStruct->d_name);
-			files[DirLen].Op='N';
-			files[DirLen].perc=0;
-			files[DirLen].am = 0;
-			pthread_mutex_init(&filemutex[DirLen],NULL);
-			
-			DirLen++;
-		}
-		closedir(directory);
-		fprintf(stdout,"Prepared Directory List\n");
-			//Prepare list of files in directory
-		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
-	
-		sendfd = makesocket(SOCK_DGRAM,0);
-		MessageQueueWork(listenfd,sendfd);
-		pthread_mutex_destroy(&directorymutex);
-		for( i=0;i<DirLen;i++) pthread_mutex_destroy(&filemutex[DirLen]);
-		fclose(TaskReporter);
-		pthread_mutex_destroy(&SuperMutex);
-		pthread_mutex_destroy(&MessageMutex);
-		pthread_mutex_destroy(&opID);
-		pthread_mutex_destroy(&GateMutex);
-return 0;
-		
+		lstat(dirStruct->d_name, &st);
+		if(S_ISDIR(st.st_mode)) continue;
+		pthread_mutex_init(&filemutex[DirLen],NULL);
+		InitializeFile(dirStruct,DirLen);
+		DirLen++;
+	}
+	closedir(directory);
+	fprintf(stdout,"Prepared Directory List\n");
+	listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
+	sendfd = makesocket(SOCK_DGRAM,0);
+	MessageQueueWork(listenfd,sendfd);
+	pthread_mutex_destroy(&directorymutex);
+	for( i=0;i<DirLen;i++) pthread_mutex_destroy(&filemutex[DirLen]);
+	fclose(TaskReporter);
+	pthread_mutex_destroy(&SuperMutex);
+	pthread_mutex_destroy(&MessageMutex);
+	pthread_mutex_destroy(&opID);
+	pthread_mutex_destroy(&GateMutex);
+	return 0;		
 }

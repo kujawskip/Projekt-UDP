@@ -279,8 +279,6 @@ void WaitOnMessage()
 }
 void WaitOnSuper()
 {
-	fprintf(stderr,"Locking on Super\n");
-
 	pthread_mutex_lock(&SuperMutex);
 }
 void WakeMessage()
@@ -289,8 +287,6 @@ void WakeMessage()
 }
 void WaitOnGate()
 {
-	fprintf(stderr,"Locking on Gate\n");
-
 	pthread_mutex_lock(&GateMutex);
 }
 void WakeGate()
@@ -304,14 +300,11 @@ void WakeSuper()
 void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 {
 	char MessageBuf[MAXBUF];
-	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
 	while(1)
 	{
-		fprintf(stderr,"DEBUG Super\n");
-		WaitOnMessage();
-		fprintf(stderr,"Super passed mutex\n");
+		WaitOnMessage();		
 		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 		{
 			if(errno==EINTR)
@@ -344,8 +337,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 }
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid,int passsecurity)
 {
-	char MessageBuf[MAXBUF];
-	
+	char MessageBuf[MAXBUF];	
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
 	while(1)
@@ -377,10 +369,9 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 		DeserializeMessage(MessageBuf,m);
 		addr->sin_port = m->responseport;
 		if(!passsecurity) 
-{
-fprintf(stderr,"Waking the gate\n");
-WakeGate();
-}
+		{
+			WakeGate();
+		}
 		if(!passsecurity) WakeMessage();
 		return;
 	}
@@ -431,8 +422,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	{
 		ReceiveMessage(listenfd,&m,&server,m.id,0);
 		if(m.Kind == 'F') break;
-		chunk = DeserializeNumber(m.data);
-		fprintf(stderr,"DEBUG: %s \n",m.data+4);
+		chunk = DeserializeNumber(m.data);		
 		for(i=0;i<dataLength-Preamble;i++)
 		{
 			if(m.data[i+4]=='\0') break;
@@ -632,7 +622,6 @@ struct ThreadArg
 void* BeginOperation(void * arg)
 {
 	struct ThreadArg trarg = *((struct ThreadArg*)arg);
-	fprintf(stderr,"DEBUG: trarg %d %d %s %c %d\n",trarg.sendfd,trarg.listenfd,trarg.data,trarg.Kind,trarg.restart);
 	if(trarg.Kind=='D')
 	{
 		DownloadFile(trarg.sendfd,trarg.listenfd,trarg.address,trarg.data,trarg.restart);
@@ -661,7 +650,6 @@ pthread_t StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char
 	trarg->restart=restart;
 	trarg->Kind=Kind;
 	strcpy(trarg->data,data);
-	fprintf(stderr,"Starting thread %c %d \n",Kind,restart);
 	if(pthread_create(&thread,NULL,BeginOperation,(void*)(trarg))<0) ERR("THREAD CREATE");
 	return thread;
 }
@@ -676,11 +664,10 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address,pthrea
 	{
 		struct ThreadArg trarg;		
 		if(ReadLine(OperationSaver,buf)<=0) return;		
-		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
-		fprintf(stderr,"DEBUG: id:%d kind:%c data:%s finished:%d\n",fid,fkind,fdata,temp);
+		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);	
 		if(0==temp)
 		{
-			fprintf(stderr,"DEBUG: Preparing to Start Op\n");
+			fprintf(stdout,"Restarting operation of id: %d, kind: %c %s\n",fid,fkind,fdata);
 			ts[(*ti)++] = StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
 		}
 	}
@@ -705,8 +692,7 @@ void MenuWork(int sendfd,int listenfd,struct sockaddr_in server)
 			Threads[ti++] = StartOperation(sendfd,listenfd,server,buf,'M',0,&t);
 		}
 		else if(strcmp(buf,"LS") == 0)
-		{
-			
+		{			
 			Threads[ti++] = StartOperation(sendfd,listenfd,server,"",'L',0,&t);
 		}
 		else if(strcmp(buf,"DOWNLOAD") == 0)
@@ -726,7 +712,7 @@ void MenuWork(int sendfd,int listenfd,struct sockaddr_in server)
 }
 int main(int argc,char** argv)
 {
-	int listenfd,broadcastfd,sendfd,i;
+	int listenfd,broadcastfd,sendfd;
 	struct sockaddr_in server;
 	struct sigaction new_sa;
 	sigfillset(&new_sa.sa_mask);
