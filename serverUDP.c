@@ -551,14 +551,6 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	{
 	m = PrepareMessage(GenerateOpID(&id,'U'),'U');
 	SendMessage(sendfd,m,address);
-	ReceiveMessage(listenfd,&m,&address,m.id);
-	if(m.Kind!='U')
-	{
-		///ERR;
-		
-		return;
-	}
-	
 	for(i=0;i<size;i++)
 	{
 		fwrite(" ",1,1,F);
