@@ -687,7 +687,7 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address,pthrea
 }
 void MenuWork(int sendfd,int listenfd,struct sockaddr_in server)
 {
-	int ti;
+	int ti,i;
 	struct ThreadArg t;
 	pthread_t Threads[MAXBUF];
 	Threads[0] = StartListening(&listenfd);
@@ -727,7 +727,6 @@ void MenuWork(int sendfd,int listenfd,struct sockaddr_in server)
 int main(int argc,char** argv)
 {
 	int listenfd,broadcastfd,sendfd,i;
-	pthread_t Threads[MAXBUF];
 	struct sockaddr_in server;
 	struct sigaction new_sa;
 	sigfillset(&new_sa.sa_mask);
@@ -759,6 +758,7 @@ int main(int argc,char** argv)
 	{
 		ERR("PORT:");
 	}	
+	MenuWork(sendfd,listenfd,server);
 	print_ip((long int)server.sin_addr.s_addr);	
 	fclose(OperationSaver);
 	pthread_mutex_destroy(&SuperMutex);
