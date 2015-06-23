@@ -128,16 +128,17 @@ void LockDirectory()
 {
 	pthread_mutex_lock(&directorymutex);
 }
+void UnLockDirectory()
+{
+	pthread_mutex_unlock(&directorymutex);
+}
 void LockFile(int id)
 {
 	LockDirectory();
 	pthread_mutex_lock(&filemutex[id]);
 	UnLockDirectory();
 }
-void UnLockDirectory()
-{
-	pthread_mutex_unlock(&directorymutex);
-}
+
 void UnLockFile(int id)
 {
 		LockDirectory();
@@ -511,7 +512,7 @@ void AddFile(char* FileName)
 	LockDirectory();
 	files[DirLen].Op='N';
 	files[DirLen].perc=0;
-	filemutex[DirLen]
+	pthread_mutex_init(&filemutex[DirLen],NULL);
 	strcpy((char*)(files[DirLen].Name),FileName);
 	pthread_mutex_init(&filemutex[DirLen],NULL);
 	UnLockDirectory();
@@ -648,7 +649,7 @@ strcat(FilePath,name);
 				pthread_mutex_unlock(&filemutex[j]);
 			}
 			pthread_mutex_unlock(&filemutex[j]);
-			pthread_mutex_destroy(&filmutex[j]);
+			pthread_mutex_destroy(&filemutex[j]);
 			DirLen--;
 			m = PrepareMessage(m.id,'C');
 			SendMessage(sendfd,m,address);
@@ -791,7 +792,7 @@ void print_ip(unsigned long int ip)
 }
 int main(int argc,char** argv)
 {
-		int listenfd,sendfd,iter;
+		int listenfd,sendfd,iter,i;
 		struct sockaddr_in client;
 		char filebuf[7];
 		struct dirent* dirStruct;
@@ -862,7 +863,7 @@ if(S_ISDIR(st.st_mode)) continue;
 		sendfd = makesocket(SOCK_DGRAM,0);
 		MessageQueueWork(listenfd,sendfd);
 		pthread_mutex_destroy(&directorymutex);
-		for(int i=0;i<DirLen;i++) pthread_mutex_destroy(&filemutex[DirLen]);
+		for( i=0;i<DirLen;i++) pthread_mutex_destroy(&filemutex[DirLen]);
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 		pthread_mutex_destroy(&opID);
