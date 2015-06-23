@@ -550,6 +550,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 		SendMessage(sendfd,m,server);
 		return;
 	}
+	fprintf(stdout,"Uploaded file %s id:%d  \n",m.id,FilePath);
 	m = PrepareMessage(m.id,'C');	
 	SendMessage(sendfd,m,server);		
 }

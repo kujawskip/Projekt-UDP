@@ -516,28 +516,32 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	return;
 	}
 }
-void AddFile(char* FileName)
+int AddFile(char* FileName)
 {	
+	int i;
 	LockDirectory();
 	files[DirLen].Op='N';
 	files[DirLen].perc=0;
 	pthread_mutex_init(&filemutex[DirLen],NULL);
 	strcpy((char*)(files[DirLen].Name),FileName);
 	pthread_mutex_init(&filemutex[DirLen],NULL);
+	i = DirLen++;
 	UnLockDirectory();
+	return i;
 }
 void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char File[dataLength], md5_sum[MD5_LEN];
 	FILE* F;
 	char FilePath[MAXDIR];
-	int i,flag=0,id=m.id;
+	int i,flag=0,id=m.id,fd,iter;
 	uint32_t chunk;
 	int size;
 	size = DeserializeNumber(m.data);
 	strcpy(File,m.data+4);
 	memset(FilePath,0,MAXDIR);
-	if(sprintf(FilePath,"%s/%s",DirectoryPath,File)<0)
+	fd = FindFileId(File);
+	if(sprintf(FilePath,"%s/%s",DirectoryPath,File)<0 || fd>=0)
 	{
 		perror("sprintf");
 		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id,'U'),'E');
@@ -552,9 +556,14 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		return;
 	}
 	fprintf(stderr,"DEBUG: Opened %s for write\n",FilePath);
-	AddFile(File);
+	fd = AddFile(File);
+	iter = 1000/size;
 	while(1)
 	{
+		LockFile(fd);
+	files[fd].Op ='U';
+	files[fd].perc = 0;
+	UnLockFile(fd);
 		m = PrepareMessage(GenerateOpID(&id,'U'),'U');
 		SendMessage(sendfd,m,address);
 		for(i=0;i<size;i++)	fwrite(" ",1,1,F);
@@ -571,6 +580,10 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 			chunk = DeserializeNumber(m.data);
 			fseek(F,chunk*(dataLength-4),SEEK_SET);
 			bulk_fwrite(F,m.data+4,dataLength);
+			LockFile(fd);
+			files[fd].Op ='U';
+			files[fd].perc+=iter;
+			UnLockFile(fd);
 		}
 		if(flag==1)
 		{
@@ -589,12 +602,17 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		ReceiveMessage(listenfd,&m,&address,m.id);
 		if(m.Kind == 'R') continue;	
 		fclose(F);	
+		LockFile(fd);
+		files[fd].Op = 'N';
 		if(m.Kind!='C')
 		{
+			LockDirectory();
+			RemoveFile(fd);
+			UnLockDirectory();
 			fprintf(stderr,"Error creating file %s\n",File);
 			RenameFile(FilePath);
 		}
-		else AddFile(File);
+		else fprintf(stdout,"Uploaded file %s id:%d  \n",m.id,File);
 		return;
 	}
 }
