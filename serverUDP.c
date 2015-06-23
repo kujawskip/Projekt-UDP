@@ -529,6 +529,20 @@ int AddFile(char* FileName)
 	UnLockDirectory();
 	return i;
 }
+void RemoveFile(int i)
+{
+	int j;
+	pthread_mutex_lock(&filemutex[i]);
+	for(j=i;j<DirLen-1;j++)
+	{
+		pthread_mutex_lock(&filemutex[j+1]);
+		files[j]=files[j+1];
+		pthread_mutex_unlock(&filemutex[j]);
+	}
+	pthread_mutex_unlock(&filemutex[j]);
+	pthread_mutex_destroy(&filemutex[j]);
+	DirLen--;
+}
 void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char File[dataLength], md5_sum[MD5_LEN];
@@ -612,24 +626,11 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 			fprintf(stderr,"Error creating file %s\n",File);
 			RenameFile(FilePath);
 		}
-		else fprintf(stdout,"Uploaded file %s id:%d  \n",m.id,File);
+		else fprintf(stdout,"Uploaded file %s id:%d  \n",File,m.id);
 		return;
 	}
 }
-void RemoveFile(int i)
-{
-	int j;
-	pthread_mutex_lock(&filemutex[i]);
-	for(j=i;j<DirLen-1;j++)
-	{
-		pthread_mutex_lock(&filemutex[j+1]);
-		files[j]=files[j+1];
-		pthread_mutex_unlock(&filemutex[j]);
-	}
-	pthread_mutex_unlock(&filemutex[j]);
-	pthread_mutex_destroy(&filemutex[j]);
-	DirLen--;
-}
+
 void DeleteFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
 {
 	char* name = m.data;
