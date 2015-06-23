@@ -538,6 +538,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	F = fopen(FilePath,"w+");
 	if(F==NULL)
 	{
+		fprintf(stderr,"%s\n",FilePath);
 		perror("FILE");
 		m = PrepareMessage(GenerateOpID(&id,'U'),'E');
 		SendMessage(sendfd,m,address);
