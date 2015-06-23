@@ -718,6 +718,7 @@ int main(int argc,char** argv)
 	sigfillset(&new_sa.sa_mask);
 	new_sa.sa_handler = SigActionHandler;
 	new_sa.sa_flags = 0;
+	doWork=1;
 	if (sigaction(SIGINT, &new_sa, NULL)<0)
 	{
 		ERR("SIGINT SIGACTION");
