@@ -805,6 +805,19 @@ void print_ip(unsigned long int ip)
     bytes[3] = (ip >> 24) & 0xFF;	
     printf("%d.%d.%d.%d\n", bytes[3], bytes[2], bytes[1], bytes[0]);        
 }
+int ReadLine(FILE* F,char* buf)
+{
+	int i,j=0;
+	while(1)
+	{
+		i = bulk_fread(F,buf,1);
+		if(i==0) return (j==0)?0:1;
+		if(i<0) return -1;
+		buf+=i;
+		j+=i;
+		if(*(buf-1)=='\n') return 1;
+	}
+}
 int main(int argc,char** argv)
 {
 		int listenfd,sendfd,iter,i;
@@ -829,7 +842,7 @@ int main(int argc,char** argv)
 		TaskReporter = fopen("serversave.dat","a+");
 		minid=1;
 		RetiredIDs[0] = 'N';
-		while((iter=bulk_fread(TaskReporter,filebuf,7))>0)
+		while(ReadLine(filebuf,TaskReporter)>0)
 		{
 			int fid;
 			char c;
