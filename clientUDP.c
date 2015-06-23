@@ -343,7 +343,15 @@ if(!passsecurity)	WaitOnSuper();
 	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 if(!passsecurity)	WaitOnMessage();
 	fprintf(stderr,"Regular beginning read. Expected id = %d\n",expectedid);
-	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
+	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 	fprintf(stderr,"DEBUG: ReceivedMessage ");
 	for(i=0;i<sizeof(struct Message);i++) fprintf(stderr,"%c",MessageBuf[i]);
 	fprintf(stderr," preparing for serialization\n");
@@ -352,7 +360,15 @@ if(!passsecurity)	WaitOnMessage();
 	if(expectedid==0 || m->id==expectedid)
 	{
 	
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 			addr->sin_port = m->responseport;

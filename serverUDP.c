@@ -285,14 +285,30 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		fprintf(stderr,"DEBUG Super\n");
 		WaitOnMessage();
 		fprintf(stderr,"Super passed mutex\n");
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0 || (m->id<minid && m->Kind == 'R'))
 		{
 	
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Changing port from %d to %d\n",addr->sin_port,m->responseport);
@@ -321,14 +337,30 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	WaitOnSuper();
 	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 	WaitOnMessage();
-	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
+	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
 	if(m->id==expectedid)
 	{
 	
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		addr->sin_port = m->responseport;
