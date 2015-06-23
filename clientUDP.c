@@ -41,7 +41,7 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	do
 	{		
 		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
-		fprintf(stderr,"DEBUG: Fread %d msg: %s\n",c,buf);
+		
 		if(c==0) break;
 		if(c<0) return c;
 		buf+=c;
@@ -75,7 +75,7 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 	{
 		c=TEMP_FAILURE_RETRY(fwrite(buf,1,count,fd));
 		fflush(fd);
-		fprintf(stderr,"DEBUG: Fwrite %d msg: %s\n",c,buf);
+		
 		if(c<0) return c;
 		buf+=c;
 		len+=c;
@@ -547,7 +547,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
 	
-	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
+	
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
@@ -555,6 +555,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 		SendMessage(sendfd,m,server);
 		return;
 	}
+	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
 	SaveOperation(m.id,'U',FilePath,1);
 	if(0!=strcmp(m.data,md5_sum))
 	{
