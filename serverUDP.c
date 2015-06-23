@@ -537,7 +537,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	m = PrepareMessage(GenerateOpID(&id,'U'),'U');
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
-	if(m.Kind!='C')
+	if(m.Kind!='U')
 	{
 		///ERR;
 		
