@@ -525,8 +525,8 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	fclose(F);
 	LockFile(fd);
 	files[fd].am--;
-	if(files[fd].am>0)files[fd].Op = 'N';
-	if(files[fd].am>0)files[fd].perc = 0;
+	if(files[fd].am==0)files[fd].Op = 'N';
+	if(files[fd].am==0)files[fd].perc = 0;
 	UnLockFile(fd);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
@@ -938,6 +938,7 @@ if(S_ISDIR(st.st_mode)) continue;
 		MessageQueueWork(listenfd,sendfd);
 		pthread_mutex_destroy(&directorymutex);
 		for( i=0;i<DirLen;i++) pthread_mutex_destroy(&filemutex[DirLen]);
+		fclose(TaskReporter);
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 		pthread_mutex_destroy(&opID);

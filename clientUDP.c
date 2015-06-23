@@ -431,10 +431,12 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	size = DeserializeNumber(m.data);
 	m.responseport = listenport;
 	Dir = (char*)malloc(size*sizeof(char));
+
 	if(Dir==NULL)
 	{
 		
 	}
+	memset(Dir,0,"size);
 	SendMessage(sendfd,m,server);
 	while(1)
 	{
@@ -454,6 +456,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	}
 	SaveOperation(m.id,'L',"",1);
 	bulk_write(1,Dir,size);
+
 	free(Dir);
 }
 void RenameFile(char* FilePath)
@@ -724,6 +727,7 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address,pthrea
 	char fdata[MAXBUF];
 	char fkind;
 	int fid,temp;
+	memset(buf,0,MAXBUF);
 		while(1)
 		{
 			struct ThreadArg trarg;
@@ -782,7 +786,7 @@ if (sigaction(SIGINT, &new_sa, NULL)<0)
 	RestoreOperations(sendfd,listenfd,server,Threads,&ti);
 	print_ip((long int)server.sin_addr.s_addr);
 	struct ThreadArg t;
-	while(1)
+	while(doWork)
 	{
 		
 		char buf[MAXBUF];
@@ -813,6 +817,7 @@ if (sigaction(SIGINT, &new_sa, NULL)<0)
 		}
 	}
 		for(i=0;i<ti;i++) pthread_cancel(Threads[i]);
+		fclose(OperationSaver);
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 	//	pthread_mutex_destroy(&opID);
