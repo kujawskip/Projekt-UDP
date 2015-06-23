@@ -536,6 +536,12 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	strcat(FilePath,File);	
 	
 	F = fopen(FilePath,"w+");
+	if(F==NULL)
+	{
+		m = PrepareMessage(GenerateOpID(&id,'U'),'E');
+		SendMessage(sendfd,m,address);
+		return;
+	}
 	fprintf(stderr,"DEBUG: Opened %s for write\n",FilePath);
 	AddFile(File);
 	while(1)
@@ -685,7 +691,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 		truesize+= DecodeFile(S,files[i]);
 		strcat(Dir,S);
 	}
-	
+	UnLockDirectory();
 	truesize++;
 	fprintf(stderr,"DEBUG: %d %s \n",truesize,Dir);
 	m = PrepareMessage(GenerateOpID(&id,'L'),'L');
@@ -694,10 +700,12 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind == 'R')
 	{
+		
 		continue;
 	}
 	if(m.Kind == 'E')
 	{
+		
 		free(Dir);
 		return;
 	}
@@ -716,6 +724,7 @@ void ListDirectory(int sendfd,int listenfd,struct Message m,struct sockaddr_in a
 	}
 	PrepareAndSendMessage(sendfd,address,m.id,'F');
 	free(Dir);
+	
 	return;
 	}
 }
