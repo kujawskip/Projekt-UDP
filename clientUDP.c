@@ -312,13 +312,13 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		fprintf(stderr,"DEBUG Super\n");
 		WaitOnMessage();
 		fprintf(stderr,"Super passed mutex\n");
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
+		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0) ERR("read:");
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0)
 		{
-			if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
+			if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0) ERR("read:");
 			addr->sin_port = m->responseport;
 			WakeMessage();
 			return;
@@ -343,7 +343,7 @@ if(!passsecurity)	WaitOnSuper();
 	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 if(!passsecurity)	WaitOnMessage();
 	fprintf(stderr,"Regular beginning read. Expected id = %d\n",expectedid);
-	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0)
+	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
 		{
@@ -360,7 +360,7 @@ if(!passsecurity)	WaitOnMessage();
 	if(expectedid==0 || m->id==expectedid)
 	{
 	
-		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0)
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
 		{

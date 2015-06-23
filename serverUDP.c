@@ -285,7 +285,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		fprintf(stderr,"DEBUG Super\n");
 		WaitOnMessage();
 		fprintf(stderr,"Super passed mutex\n");
-		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0)
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
 		{
@@ -300,7 +300,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		if(m->id==0 || (m->id<minid && m->Kind == 'R'))
 		{
 	
-		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0)
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
 		{
@@ -337,7 +337,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	WaitOnSuper();
 	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
 	WaitOnMessage();
-	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0)
+	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
 		{
@@ -352,7 +352,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	if(m->id==expectedid)
 	{
 	
-		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0)
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
 		{
