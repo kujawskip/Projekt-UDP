@@ -577,7 +577,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 			break;
 		}
 		chunk = DeserializeNumber(m.data);
-		fseek(F,chunk*dataLength,SEEK_SET);
+		fseek(F,chunk*(dataLength-4),SEEK_SET);
 		bulk_fwrite(F,m.data+4,dataLength);
 		//TODO: Write in a file in exact position
 		
