@@ -761,7 +761,7 @@ int main(int argc,char** argv)
 			Threads[ti++] = StartOperation(sendfd,listenfd,server,buf,'U',0,&t);
 		}
 	}
-		for(i=0;i<ti;i++) pthread_cancel(&Threads[i]);
+		for(i=0;i<ti;i++) pthread_cancel(Threads[i]);
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 	//	pthread_mutex_destroy(&opID);

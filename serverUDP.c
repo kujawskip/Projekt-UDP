@@ -795,7 +795,7 @@ void MessageQueueWork(int listenfd,int sendfd)
 			pthread_create(&thread,NULL,HandleMessage,(void*)&t);
 		Threads[ti++]=thread;
 	}
-	for(i=0;i<ti;i++) pthread_cancel(&Threads[i]);
+	for(i=0;i<ti;i++) pthread_cancel(Threads[i]);
 }
 
 void usage(char* c)
