@@ -529,7 +529,8 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	int i,flag=0,id=m.id;
 	uint32_t chunk;
 	int size;
-	strcpy(File,m.data);
+	size = DeserializeNumber(m.data);
+	strcpy(File,m.data+4);
 	memset(FilePath,0,MAXDIR);
 	strcat(FilePath,DirectoryPath);
 	strcat(FilePath,"/");
@@ -557,7 +558,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		
 		return;
 	}
-	size = DeserializeNumber(m.data);
+	
 	for(i=0;i<size;i++)
 	{
 		fwrite(" ",1,1,F);
@@ -779,6 +780,8 @@ void MessageQueueWork(int listenfd,int sendfd)
 {
 	struct sockaddr_in client;
 	struct Message m;
+	pthread_t Threads[MAXBUF];
+	int ti=0,i;
 	while(1)
 	{
 		pthread_t thread;
@@ -790,7 +793,9 @@ void MessageQueueWork(int listenfd,int sendfd)
 		memcpy((void*)&(t.address),(void*)&client,sizeof(struct sockaddr_in));
 		memcpy((void*)&(t.m),(void*)&m,sizeof(struct Message));
 			pthread_create(&thread,NULL,HandleMessage,(void*)&t);
-		}
+		Threads[ti++]=thread;
+	}
+	for(i=0;i<ti;i++) pthrad_cancel(&Threads[i]);
 }
 
 void usage(char* c)

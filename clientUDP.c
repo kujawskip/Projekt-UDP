@@ -663,7 +663,7 @@ void* BeginOperation(void * arg)
 	return NULL;
 
 }
-void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* data,char Kind,int restart,struct ThreadArg* trarg)
+pthread_t StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* data,char Kind,int restart,struct ThreadArg* trarg)
 {
 	pthread_t thread;
 	trarg->sendfd = sendfd;
@@ -674,8 +674,9 @@ void StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char* dat
 	strcpy(trarg->data,data);
 	fprintf(stderr,"Starting thread %c %d \n",Kind,restart);
 	pthread_create(&thread,NULL,BeginOperation,(void*)(trarg));
+	return thread;
 }
-void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
+void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address,pthread_t* ts,int* ti)
 {
 	char buf[MAXBUF];
 	char fdata[MAXBUF];
@@ -692,14 +693,15 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address)
 			if(0==temp)
 			{
 				fprintf(stderr,"DEBUG: Preparing to Start Op\n");
-				StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
+				ts[(*ti)++] = StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
 			}
 		}
 }
 
 int main(int argc,char** argv)
 {
-	int listenfd,broadcastfd,sendfd;
+	int listenfd,broadcastfd,sendfd,ti,i;
+	pthread_t Threads[MAXBUF];
 	struct sockaddr_in server;
 		if(argc!=2) 
 		{
@@ -723,9 +725,9 @@ int main(int argc,char** argv)
 	{
 		ERR("PORT:");
 	}
-	StartListening(&listenfd);
-	
-	RestoreOperations(sendfd,listenfd,server);
+	Threads[0] = StartListening(&listenfd);
+	ti=1;
+	RestoreOperations(sendfd,listenfd,server,Threads,&ti);
 	print_ip((long int)server.sin_addr.s_addr);
 	struct ThreadArg t;
 	while(1)
@@ -738,27 +740,27 @@ int main(int argc,char** argv)
 		{
 			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
-			StartOperation(sendfd,listenfd,server,buf,'M',0,&t);
+			Threads[ti++] = StartOperation(sendfd,listenfd,server,buf,'M',0,&t);
 		}
 		else if(strcmp(buf,"LS") == 0)
 		{
 			
-			StartOperation(sendfd,listenfd,server,"",'L',0,&t);
+			Threads[ti++] = StartOperation(sendfd,listenfd,server,"",'L',0,&t);
 		}
 		else if(strcmp(buf,"DOWNLOAD") == 0)
 		{
 			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
-			StartOperation(sendfd,listenfd,server,buf,'D',0,&t);
+			Threads[ti++] = StartOperation(sendfd,listenfd,server,buf,'D',0,&t);
 		}
 		else if(strcmp(buf,"UPLOAD")==0)
 		{
 			fprintf(stdout,"Input filename\n");
 			scanf("%s",buf);
-			StartOperation(sendfd,listenfd,server,buf,'U',0,&t);
+			Threads[ti++] = StartOperation(sendfd,listenfd,server,buf,'U',0,&t);
 		}
 	}
-	
+		for(i=0;i<ti;i++) pthrad_cancel(&Threads[i]);
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 	//	pthread_mutex_destroy(&opID);
