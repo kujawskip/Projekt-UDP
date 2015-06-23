@@ -556,7 +556,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 		fwrite(" ",1,1,F);
 	}
 	fseek(F,0,SEEK_SET);
-	SendMessage(sendfd,m,address);
+	
 	while(1)
 	{
 		ReceiveMessage(listenfd,&m,&address,m.id);
