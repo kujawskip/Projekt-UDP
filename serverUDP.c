@@ -842,7 +842,7 @@ int main(int argc,char** argv)
 		TaskReporter = fopen("serversave.dat","a+");
 		minid=1;
 		RetiredIDs[0] = 'N';
-		while(ReadLine(filebuf,TaskReporter)>0)
+		while(ReadLine(TaskReporter,filebuf)>0)
 		{
 			int fid;
 			char c;
