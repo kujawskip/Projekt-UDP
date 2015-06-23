@@ -329,6 +329,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid,int passsecurity)
 {
 	char MessageBuf[MAXBUF];
+	int i;
 	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
@@ -339,7 +340,9 @@ if(!passsecurity)	WaitOnSuper();
 if(!passsecurity)	WaitOnMessage();
 	fprintf(stderr,"Regular beginning read. Expected id = %d\n",expectedid);
 	if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size))<0) ERR("read:");
-	fprintf(stderr,"DEBUG: ReceivedMessage %s , preparing for serialization\n",MessageBuf);
+	fprintf(stderr,"DEBUG: ReceivedMessage ");
+	for(i=0;i<sizeof(struct Message);i++) fprintf(stderr,"%c",MessageBuf[i]);
+	fprintf(stderr," preparing for serialization\n");
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
 	if(expectedid==0 || m->id==expectedid)
