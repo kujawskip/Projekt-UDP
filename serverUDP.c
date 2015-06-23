@@ -271,7 +271,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
-		if(m->id==0 || (m->id<minid && m.Kind == 'R'))
+		if(m->id==0 || (m->id<minid && m->Kind == 'R'))
 		{
 	
 		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size))<0) ERR("read:");
