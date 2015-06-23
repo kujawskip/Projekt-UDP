@@ -121,18 +121,28 @@ uint32_t GenerateOpID(int* id,char TaskType)
 	pthread_mutex_unlock(&opID);
 	return *id;
 }
+
+pthread_mutex_t directorymutex;
+pthread_mutex_t filemutex[MAXDIR];
 void LockDirectory()
 {
+	pthread_mutex_lock(&directorymutex);
 }
 void LockFile(int id)
 {
+	LockDirectory();
+	pthread_mutex_lock(&filemutex[id]);
+	UnLockDirectory();
 }
 void UnLockDirectory()
 {
+	pthread_mutex_unlock(&directorymutex);
 }
 void UnLockFile(int id)
 {
-	
+		LockDirectory();
+	pthread_mutex_unlock(&filemutex[id]);
+	UnLockDirectory();
 }
 
 
@@ -501,7 +511,9 @@ void AddFile(char* FileName)
 	LockDirectory();
 	files[DirLen].Op='N';
 	files[DirLen].perc=0;
+	filemutex[DirLen]
 	strcpy((char*)(files[DirLen].Name),FileName);
+	pthread_mutex_init(&filemutex[DirLen],NULL);
 	UnLockDirectory();
 }
 void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in address)
@@ -628,10 +640,15 @@ strcat(FilePath,name);
 				break;
 			}
 			fprintf(stderr,"DEBUG: moving files %d %d \n",i,DirLen);
+			pthread_mutex_lock(&filemutex[i]);
 			for(j=i;j<DirLen-1;j++)
 			{
+				pthread_mutex_lock(&filemutex[j+1]);
 				files[j]=files[j+1];
+				pthread_mutex_unlock(&filemutex[j]);
 			}
+			pthread_mutex_unlock(&filemutex[j]);
+			pthread_mutex_destroy(&filmutex[j]);
 			DirLen--;
 			m = PrepareMessage(m.id,'C');
 			SendMessage(sendfd,m,address);
@@ -806,6 +823,7 @@ int main(int argc,char** argv)
 			
 		}
 		opid = minid;
+		pthread_mutex_init(&directorymutex,NULL);
 		pthread_mutex_init(&SuperMutex,NULL);
 		pthread_mutex_init(&MessageMutex,NULL);
 		pthread_mutex_init(&opID,NULL);
@@ -833,6 +851,8 @@ if(S_ISDIR(st.st_mode)) continue;
 			files[DirLen].Op='N';
 			files[DirLen].perc=0;
 			files[DirLen].am = 0;
+			pthread_mutex_init(&filemutex[DirLen],NULL);
+			
 			DirLen++;
 		}
 		fprintf(stdout,"Prepared Directory List\n");
@@ -841,7 +861,8 @@ if(S_ISDIR(st.st_mode)) continue;
 	
 		sendfd = makesocket(SOCK_DGRAM,0);
 		MessageQueueWork(listenfd,sendfd);
-		
+		pthread_mutex_destroy(&directorymutex);
+		for(int i=0;i<DirLen;i++) pthread_mutex_destroy(&filemutex[DirLen]);
 		pthread_mutex_destroy(&SuperMutex);
 		pthread_mutex_destroy(&MessageMutex);
 		pthread_mutex_destroy(&opID);
