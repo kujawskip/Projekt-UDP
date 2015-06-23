@@ -543,6 +543,7 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	if(0!=strcmp(m.data,md5_sum))
 	{
 		m = PrepareMessage(m.id,'E');
+		fprintf(stderr,"Server sent wrong md5sum id:%d file:%s\n",m.id,FilePath);
 		SendMessage(sendfd,m,server);
 		return;
 	}

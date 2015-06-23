@@ -455,6 +455,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	while(1)
 	{
 	m = PrepareMessage(GenerateOpID(&id,'D'),'D');	
+	m.id = id;
 	SerializeNumber((uint32_t)sizeGetter.st_size,m.data);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
@@ -506,6 +507,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 	if(0!=strcmp(m.data,md5_sum))
 	{
 		m = PrepareMessage(m.id,'E');
+		fprintf(stderr,"Client sent wrong md5sum id:%d file:%s\n",m.id,File);
 		SendMessage(sendfd,m,address);
 		return;
 	}
