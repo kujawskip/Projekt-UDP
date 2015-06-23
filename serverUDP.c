@@ -404,7 +404,7 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 	{
 		
 		c=TEMP_FAILURE_RETRY(fread(buf,1,count,fd));
-		fprintf(stderr,"DEBUG: Fread %d msg: %s\n",c,buf);
+		
 		if(c==0) break;
 		if(c<0) return c;
 		buf+=c;
@@ -866,7 +866,7 @@ struct sigaction new_sa;
 sigfillset(&new_sa.sa_mask);
 new_sa.sa_handler = SigActionHandler;
 new_sa.sa_flags = 0;
-
+memset(filebuf,0,7);
 if (sigaction(SIGINT, &new_sa, NULL)<0)
 {
 	ERR("SIGINT SIGACTION");
