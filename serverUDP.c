@@ -539,7 +539,7 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	{
 		perror("sprintf");
 		PrepareAndSendMessage(sendfd,address,GenerateOpID(&id,'U'),'E');
-		break;
+		return;
 	}
 	F = fopen(FilePath,"w+");
 	if(F==NULL)
