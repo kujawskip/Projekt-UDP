@@ -312,13 +312,29 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		fprintf(stderr,"DEBUG Super\n");
 		WaitOnMessage();
 		fprintf(stderr,"Super passed mutex\n");
-		if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0) ERR("read:");
+		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
 		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0)
 		{
-			if(TEMP_FAILURE_RETRY(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0) ERR("read:");
+			while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0)
+	{
+		if(errno==EINTR)
+		{
+			if(doWork==0) return;
+			
+		}
+		else ERR("RECV");
+	}
 			addr->sin_port = m->responseport;
 			WakeMessage();
 			return;
