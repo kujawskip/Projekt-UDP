@@ -929,6 +929,7 @@ if(S_ISDIR(st.st_mode)) continue;
 			
 			DirLen++;
 		}
+		closedir(directory);
 		fprintf(stdout,"Prepared Directory List\n");
 			//Prepare list of files in directory
 		listenfd = bind_inet_socket(atoi(argv[1]),SOCK_DGRAM,INADDR_ANY,SO_BROADCAST);
