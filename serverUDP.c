@@ -30,6 +30,11 @@
 #define PATH_LEN 256
 #define MD5_LEN 32
 int minid;
+int doWork;
+void SigActionHandler(int k)
+{
+	if(k==SIGACTION) doWork==0;
+}
 char RetiredIDs[MAXTASK];
 void sleepforseconds(int sec)
 {
@@ -774,7 +779,7 @@ void MessageQueueWork(int listenfd,int sendfd)
 	struct Message m;
 	pthread_t Threads[MAXBUF];
 	int ti=0,i;
-	while(1)
+	while(doWork)
 	{
 		pthread_t thread;
 		struct Thread_Arg t;
@@ -824,8 +829,18 @@ int main(int argc,char** argv)
 		struct dirent* dirStruct;
 		DIR* directory;
 		struct Message m;
+		struct sigaction new_sa;
+struct sigaction new_sa;
+sigfillset(&new_sa.sa_mask);
+new_sa.sa_handler = SigActionHandler;
+new_sa.sa_flags = 0;
+
+if (sigaction(SIGINT, &new_sa, NULL)<0)
+{
+	ERR("SIGINT SIGACTION");
+}
 		opid=1;
-		
+		doWork=1;
 		if(argc!=3)
 		{
 			usage(argv[0]);
