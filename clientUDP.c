@@ -33,10 +33,10 @@
 #define MD5_LEN 32
 #define savefile "savefile.dat"
 FILE* OperationSaver;
-int doWork;
+volatile sigatomic_t doWork;
 void SigActionHandler(int k)
 {
-	if(k==SIGACTION) doWork==0;
+	if(k==SIGINT) doWork=0;
 }
 ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 {
@@ -713,7 +713,7 @@ int main(int argc,char** argv)
 	int listenfd,broadcastfd,sendfd,ti,i;
 	pthread_t Threads[MAXBUF];
 	struct sockaddr_in server;
-		struct sigaction new_sa;
+
 struct sigaction new_sa;
 sigfillset(&new_sa.sa_mask);
 new_sa.sa_handler = SigActionHandler;
