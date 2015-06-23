@@ -589,7 +589,6 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 
 	m = PrepareMessage(m.id,'F');
 	strcpy(m.data,md5_sum);
-	fprintf(stderr,"DEBUG: about to send %s\n",m.data);
 	SendMessage(sendfd,m,address);
 	ReceiveMessage(listenfd,&m,&address,m.id);
 	if(m.Kind == 'R')

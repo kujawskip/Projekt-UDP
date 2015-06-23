@@ -546,6 +546,8 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,m.id,0);
+	
+	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
@@ -553,7 +555,6 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 		SendMessage(sendfd,m,server);
 		return;
 	}
-	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
 	SaveOperation(m.id,'U',FilePath,1);
 	if(0!=strcmp(m.data,md5_sum))
 	{
