@@ -778,6 +778,7 @@ void* HandleMessage(void* arg)
 {
 	struct Thread_Arg t = *((struct Thread_Arg*)(arg));
 	char Kind='N';
+	if(DoWork==0) return NULL;
 	if(t.m.id>0)
 	{
 		Kind = RetiredIDs[t.m.id];
