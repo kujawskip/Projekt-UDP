@@ -856,7 +856,7 @@ int ReadLine(FILE* F,char* buf)
 }
 int main(int argc,char** argv)
 {
-		int listenfd,sendfd,iter,i;
+		int listenfd,sendfd,i;
 		struct sockaddr_in client;
 		char filebuf[7];
 		struct dirent* dirStruct;
@@ -920,7 +920,7 @@ if (sigaction(SIGINT, &new_sa, NULL)<0)
 				break;
 			}
 			lstat(dirStruct->d_name, &st);
-if(S_ISDIR(st.st_mode)) continue;
+			if(S_ISDIR(st.st_mode)) continue;
 			strcpy((char*)(files[DirLen].Name),dirStruct->d_name);
 			files[DirLen].Op='N';
 			files[DirLen].perc=0;

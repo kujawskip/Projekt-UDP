@@ -345,7 +345,7 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expectedid,int passsecurity)
 {
 	char MessageBuf[MAXBUF];
-	int i;
+	
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
 	while(1)
@@ -356,8 +356,7 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 	{
 		if(errno==EINTR)
 		{
-			if(doWork==0) return;
-			
+			if(doWork==0) return;			
 		}
 		else ERR("RECV");
 	}
@@ -426,7 +425,7 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 		perror("malloc");
 		return;
 	}
-	memset(Dir,0,"size);
+	memset(Dir,0,size);
 	SendMessage(sendfd,m,server);
 	while(1)
 	{
