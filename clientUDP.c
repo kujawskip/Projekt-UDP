@@ -88,6 +88,7 @@ ssize_t bulk_fwrite(FILE* fd,char* buf,size_t count)
 	while(count>0);
 	return len ;
 }
+pthread_mutex_t OperationSaveMutex;
 void SaveOperation(int id,char Kind,char* data,int finished)
 {
 	char buf[MAXBUF];
@@ -100,6 +101,7 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 		fseek(OperationSaver,0,SEEK_SET);
 		while(1)
 		{
+		pthread_mutex_lock(&OperationSaveMutex);
 		pos = ftell(OperationSaver);
 		if(ReadLine(OperationSaver,buf)<0) return;
 		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
@@ -107,10 +109,18 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 			{
 				fseek(OperationSaver,pos,SEEK_SET);
 				pos = sprintf(buf,"id:%d kind:%c data:%s finished:%d\n",id,Kind,data,finished);
+				if(pos<0)
+				{
+					pthread_mutex_unlock(&OperationSaveMutex);
+					perror("SAVE");
+					return;
+				}
 				bulk_fwrite(OperationSaver,buf,pos);
 				fseek(OperationSaver,0,SEEK_SET);
+				pthread_mutex_unlock(&OperationSaveMutex);
 				return;
 			}
+		pthread_mutex_unlock(&OperationSaveMutex);
 		}
 	}
 	else
@@ -119,10 +129,17 @@ void SaveOperation(int id,char Kind,char* data,int finished)
 		pos = fileno(OperationSaver);
 		fstat(pos,&sizeGetter);
 		temp = (int)sizeGetter.st_size;
+		pthread_mutex_lock(&OperationSaveMutex);
 		fseek(OperationSaver,temp,SEEK_SET);
 		temp = sprintf(buf,"id:%d kind:%c data:%s finished:%d\n",id,Kind,data,finished);
+		if(temp<0)
+		{
+			perror("SAVE");
+			return;
+		}
 		bulk_fwrite(OperationSaver,buf,temp);
 		fseek(OperationSaver,0,SEEK_SET);
+		pthread_mutex_unlock(&OperationSaveMutex);
 	}
 }
 void sleepforseconds(int sec)
@@ -139,8 +156,6 @@ void sleepforseconds(int sec)
 	 }
 	 else ERR("SLEEP");
    }
-
-
 }
 int CalcFileMD5(char *file_name, char *md5_sum)
 {
@@ -148,15 +163,12 @@ int CalcFileMD5(char *file_name, char *md5_sum)
     char cmd[PATH_LEN + sizeof (MD5SUM_CMD_FMT)];
     sprintf(cmd, MD5SUM_CMD_FMT, file_name);
     #undef MD5SUM_CMD_FMT
-
     FILE *p = popen(cmd, "r");
     if (p == NULL) return 0;
-
     int i, ch;
     for (i = 0; i < MD5_LEN && isxdigit(ch = fgetc(p)); i++) {
         *md5_sum++ = ch;
     }
-
     *md5_sum = '\0';
     pclose(p);
     return i == MD5_LEN;
@@ -173,13 +185,8 @@ struct Message
 };
 struct Message PrepareMessage(uint32_t id,char type)
 {
-	struct Message m = {.Kind = type, .id = id,.responseport=listenport};
-	
+	struct Message m = {.Kind = type, .id = id,.responseport=listenport};	
 	memset(m.data,0,dataLength);
-	if(m.responseport==0)
-	{
-		fprintf(stderr,"DEBUG: response port = 0 (listenport = %d) \n",listenport);
-	}
 	return m;
 }
 void SerializeNumber(int number,char* buf)
@@ -230,8 +237,6 @@ void SerializeMessage(char* buf,struct Message m)
 	{
 		buf[i+5+(sizeof(uint32_t)/sizeof(char))] = m.data[i];
 	}
-	
-	
 }
 int makesocket(int type,int flag)
 {
@@ -257,14 +262,11 @@ int bind_inet_socket(uint16_t port,int type,uint32_t addres,int flag){
 }
 
 void SendMessage(int fd,struct Message m,struct sockaddr_in addr)
-{
-	
+{	
 	char MessageBuf[MAXBUF];
 	m.responseport = listenport;
 	memset(MessageBuf,0,MAXBUF);
-	fprintf(stderr,"Beginning send port %d (htonsed), message id %d message kind %c response port %d message data %s \n",addr.sin_port,m.id,m.Kind,m.responseport,m.data);
 	SerializeMessage(MessageBuf,m);
-	fprintf(stderr,"Serialized message to %s \n",MessageBuf);
 	if(TEMP_FAILURE_RETRY(sendto(fd,MessageBuf,sizeof(struct Message),0,&addr,sizeof(struct sockaddr_in)))<0) ERR("send:");	
 	sleep(1);
 }
@@ -273,9 +275,7 @@ pthread_mutex_t MessageMutex;
 pthread_mutex_t GateMutex;
 void WaitOnMessage()
 {
-	fprintf(stderr,"Locking on Message\n");
 	pthread_mutex_lock(&MessageMutex);
-	fprintf(stderr,"Passed through Message\n");
 }
 void WaitOnSuper()
 {
@@ -313,28 +313,25 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WaitOnMessage();
 		fprintf(stderr,"Super passed mutex\n");
 		while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
-	{
-		if(errno==EINTR)
 		{
-			if(doWork==0) return;
-			
+			if(errno==EINTR)
+			{
+				if(doWork==0) return;			
+			}
+			else ERR("RECV");
 		}
-		else ERR("RECV");
-	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-		fprintf(stderr,"Super peeked message with id= %d and type = %c\n",m->id,m->Kind);
 		if(m->id==0)
 		{
 			while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0)
-	{
-		if(errno==EINTR)
-		{
-			if(doWork==0) return;
-			
-		}
-		else ERR("RECV");
-	}
+			{
+				if(errno==EINTR)
+				{
+					if(doWork==0) return;
+				}
+				else ERR("RECV");
+			}
 			addr->sin_port = m->responseport;
 			WakeMessage();
 			return;
@@ -342,7 +339,6 @@ void SuperReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr)
 		WakeSuper();
 		WakeMessage();
 		sleep(1);
-		fprintf(stderr,"Waiting on Gate");
 		WaitOnGate();
 	}
 }
@@ -350,15 +346,12 @@ void ReceiveMessage(int fd,struct Message* m,struct sockaddr_in* addr,int expect
 {
 	char MessageBuf[MAXBUF];
 	int i;
-	fprintf(stderr,"%p DEBUG",(void*)m);
 	memset(MessageBuf,0,MAXBUF);
 	socklen_t size = sizeof(struct sockaddr_in);
 	while(1)
 	{
-if(!passsecurity)	WaitOnSuper();
-	fprintf(stderr,"Regular passed through super (Expected id= %d\n",expectedid);
-if(!passsecurity)	WaitOnMessage();
-	fprintf(stderr,"Regular beginning read. Expected id = %d\n",expectedid);
+	if(!passsecurity)	WaitOnSuper();	
+	if(!passsecurity)	WaitOnMessage();
 	while(recvfrom(fd,MessageBuf,sizeof(struct Message),MSG_PEEK,(struct sockaddr*)addr,&size)<0)
 	{
 		if(errno==EINTR)
@@ -368,26 +361,22 @@ if(!passsecurity)	WaitOnMessage();
 		}
 		else ERR("RECV");
 	}
-	fprintf(stderr,"DEBUG: ReceivedMessage ");
-	for(i=0;i<sizeof(struct Message);i++) fprintf(stderr,"%c",MessageBuf[i]);
-	fprintf(stderr," preparing for serialization\n");
 	memset(m,0,sizeof(struct Message));
 	DeserializeMessage(MessageBuf,m);
 	if(expectedid==0 || m->id==expectedid)
 	{
 	
 		while(recvfrom(fd,MessageBuf,sizeof(struct Message),0,(struct sockaddr*)addr,&size)<0)
-	{
-		if(errno==EINTR)
 		{
-			if(doWork==0) return;
-			
-		}
+			if(errno==EINTR)
+			{
+				if(doWork==0) return;
+			}
 		else ERR("RECV");
 	}
 		memset(m,0,sizeof(struct Message));
 		DeserializeMessage(MessageBuf,m);
-			addr->sin_port = m->responseport;
+		addr->sin_port = m->responseport;
 		if(!passsecurity) 
 {
 fprintf(stderr,"Waking the gate\n");
@@ -421,31 +410,28 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	int size,i,chunk;
 	SendMessage(sendfd,m,server);
 	if(restart>0) m=PrepareMessage(restart,'R');
-	ReceiveMessage(listenfd,&m,&server,0,0);
-	
+	ReceiveMessage(listenfd,&m,&server,0,0);	
 	if(m.Kind != 'L')
 	{
-		
+		fprintf(stderr,"Server responded - LS Impossible \n");
+		return;
 	}
 	if(restart==0) SaveOperation(m.id,'L',"",0);
 	size = DeserializeNumber(m.data);
 	m.responseport = listenport;
 	Dir = (char*)malloc(size*sizeof(char));
-
 	if(Dir==NULL)
 	{
-		
+		fprintf(stderr,"Malloc error");
+		perror("malloc");
+		return;
 	}
 	memset(Dir,0,"size);
 	SendMessage(sendfd,m,server);
 	while(1)
 	{
 		ReceiveMessage(listenfd,&m,&server,m.id,0);
-		if(m.Kind == 'F')
-		{
-			break;
-		}
-		
+		if(m.Kind == 'F') break;
 		chunk = DeserializeNumber(m.data);
 		fprintf(stderr,"DEBUG: %s \n",m.data+4);
 		for(i=0;i<dataLength-Preamble;i++)
@@ -456,7 +442,6 @@ void ViewDirectory(int sendfd,int listenfd,struct sockaddr_in server,int restart
 	}
 	SaveOperation(m.id,'L',"",1);
 	bulk_write(1,Dir,size);
-
 	free(Dir);
 }
 void RenameFile(char* FilePath)
@@ -467,12 +452,11 @@ void RenameFile(char* FilePath)
 		if(rename(FilePath,FileName)<0)
 		{
 			fprintf(stderr,"File %s:",FilePath);
-				perror("Error renaming the file");
+			perror("Error renaming the file");
 		}
 }
 void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,int restart)
-{
-	
+{	
 	char File[dataLength],md5_sum[MD5_LEN];
 	struct Message m;
 	FILE* F;
@@ -482,50 +466,35 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,i
 	strcpy(File,path);
 	F = fopen(File,"w+");
 	m = PrepareMessage(0,'D');
-		if(restart>0) m=PrepareMessage(restart,'R');
+	if(restart>0) m=PrepareMessage(restart,'R');
 	strcpy(m.data,File);
-	fprintf(stderr,"DEBUG: prepared file %s to write\n",File);
-
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(m.Kind!='D')
 	{
-		///ERR;
 		fclose(F);
-		fprintf(stderr,"File: %s",File);
-		perror("File not found");
+		fprintf(stderr,"File: %s not found on the server",File);
 		return;
 	}
 	if(restart==0) SaveOperation(m.id,m.Kind,path,0);
 	size = DeserializeNumber(m.data);
-	fprintf(stderr,"DEBUG: received filesize of %d \n",size);
 	SendMessage(sendfd,m,server);
 	for(i=0;i<size;i++) fwrite(" ",1,1,F);	
 	while(1)
 	{
 		ReceiveMessage(listenfd,&m,&server,m.id,0);
-		if(m.Kind == 'F')
-		{
-			break;
-		}
-		
+		if(m.Kind == 'F') break;				
 		chunk = DeserializeNumber(m.data);
-		fprintf(stderr,"DEBUG: Received chunk %d of file %s id: %d \n",chunk,File,m.id);
 		fseek(F,chunk*(dataLength-Preamble),SEEK_SET);
 		bulk_fwrite(F,m.data+4,dataLength);
-		//TODO: Write in a file in exact position
-		
 	}
-	fprintf(stderr,"DEBUG: Finished receiving file %s id: %d \n",File,m.id);
 	fclose(F);
-	//CALC md5 sum of file
 	if(CalcFileMD5(File,md5_sum)==0)
 	{
 		fprintf(stderr,"Error calculating md5 checksum of file %s \n",File);
 		RenameFile(File);
 		return;
 	}
-
 	m = PrepareMessage(m.id,'F');
 	strcpy(m.data,md5_sum);
 	SendMessage(sendfd,m,server);
@@ -534,20 +503,16 @@ void DownloadFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,i
 	if(m.Kind!='C')
 	{
 		RenameFile(File);
-		//delete file;
 	}
 	else
 	{
 		fprintf(stdout,"Finished downloading file %s \n",File);
-	}
-	
+	}	
 }
 void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath,int restart)
 {
-	struct Message m = PrepareMessage(0,'U');
-	
-	int size; //getsize
-	//add filename and size to data;
+	struct Message m = PrepareMessage(0,'U');	
+	int size;
 	char md5_sum[MD5_LEN];	
     FILE * F;
 	struct stat sizeGetter;
@@ -557,47 +522,34 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	size = (int)sizeGetter.st_size;
 	SerializeNumber(size,m.data);
 	strcpy(m.data+4,FilePath);
-		count = 1+(((int)sizeGetter.st_size)/(dataLength-4));
-		
+	count = 1+(((int)sizeGetter.st_size)/(dataLength-4));		
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(restart==0) SaveOperation(m.id,'U',FilePath,0);
 	F = fopen(FilePath,"r");
 	if(m.Kind!='U')
 	{
-		///ERR
+		fprintf(stderr,"Upload of file %s failed\n",FilePath); 
 		return;
 	}
-
-	///Dziel plik na fragmenty a następnie rozsyłaj
 	for(i =0;i<count;i++)
 	{
 		if(i>0) sleepforseconds(1);
-		fprintf(stderr,"DEBUG: Sending Part %d of %d of file %s id %d\n",i,count,FilePath,m.id);
 		m = PrepareMessage(m.id,'U');
 		SerializeNumber(i,m.data);
-		fprintf(stderr,"DEBUG: Preparing Read from file\n");
+	
 		bulk_fread(F,m.data+4,dataLength-4);
-		SendMessage(sendfd,m,server);
-		
-		
-		
+		SendMessage(sendfd,m,server);		
 	}
-	//CALC md5 sum of file
-	m = PrepareMessage(m.id,'F');
-	
+	m = PrepareMessage(m.id,'F');	
 	SendMessage(sendfd,m,server);
-	ReceiveMessage(listenfd,&m,&server,m.id,0);
-	
-	
+	ReceiveMessage(listenfd,&m,&server,m.id,0);	
 	if(CalcFileMD5(FilePath,md5_sum)==0)
 	{
-		fprintf(stderr,"Error calculating md5 checksum of file %s \n",FilePath);	
 		m = PrepareMessage(m.id,'E');
 		SendMessage(sendfd,m,server);
 		return;
 	}
-	fprintf(stderr,"DEBUG: comparing %s %s",m.data,md5_sum);
 	SaveOperation(m.id,'U',FilePath,1);
 	if(0!=strcmp(m.data,md5_sum))
 	{
@@ -605,13 +557,8 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 		SendMessage(sendfd,m,server);
 		return;
 	}
-	m = PrepareMessage(m.id,'C');
-	
-	SendMessage(sendfd,m,server);
-	
-	//if(m.data!=md5sum) uncorrect 
-	
-	
+	m = PrepareMessage(m.id,'C');	
+	SendMessage(sendfd,m,server);		
 }
 void DeleteFile(int sendfd,int listenfd,struct sockaddr_in server,char* path,int restart)
 {
@@ -664,16 +611,15 @@ void* MessageQueueWork(void* arg)
 	int sp = *((int*)arg);
 	while(1)
 	{
-		 SuperReceiveMessage(sp,&m,&client);
-		
+		 SuperReceiveMessage(sp,&m,&client);		
 	}
 	return NULL;
 }
 pthread_t StartListening(int* listenfd)
 {
 	pthread_t thread;
-		pthread_create(&thread,NULL,MessageQueueWork,(void*)listenfd);
-		return thread;
+	if(pthread_create(&thread,NULL,MessageQueueWork,(void*)listenfd) <0) ERR("START LISTENING");
+	return thread;
 }
 struct ThreadArg
 {
@@ -703,8 +649,7 @@ void* BeginOperation(void * arg)
 	else if(trarg.Kind=='L')
 	{
 		ViewDirectory(trarg.sendfd,trarg.listenfd,trarg.address,trarg.restart);
-	}
-	
+	}	
 	return NULL;
 
 }
@@ -718,7 +663,7 @@ pthread_t StartOperation(int sendfd,int listenfd,struct sockaddr_in address,char
 	trarg->Kind=Kind;
 	strcpy(trarg->data,data);
 	fprintf(stderr,"Starting thread %c %d \n",Kind,restart);
-	pthread_create(&thread,NULL,BeginOperation,(void*)(trarg));
+	if(pthread_create(&thread,NULL,BeginOperation,(void*)(trarg))<0) ERR("THREAD CREATE");
 	return thread;
 }
 void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address,pthread_t* ts,int* ti)
@@ -728,67 +673,29 @@ void RestoreOperations(int sendfd,int listenfd,struct sockaddr_in address,pthrea
 	char fkind;
 	int fid,temp;
 	memset(buf,0,MAXBUF);
-		while(1)
-		{
-			struct ThreadArg trarg;
-		
-		if(ReadLine(OperationSaver,buf)<=0) return;
-		
+	while(1)
+	{
+		struct ThreadArg trarg;		
+		if(ReadLine(OperationSaver,buf)<=0) return;		
 		sscanf(buf,"id:%d kind:%c data:%s finished:%d",&fid,&fkind,fdata,&temp);
 		fprintf(stderr,"DEBUG: id:%d kind:%c data:%s finished:%d\n",fid,fkind,fdata,temp);
-			if(0==temp)
-			{
-				fprintf(stderr,"DEBUG: Preparing to Start Op\n");
-				ts[(*ti)++] = StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
-			}
-		}
-}
-
-int main(int argc,char** argv)
-{
-	int listenfd,broadcastfd,sendfd,ti,i;
-	pthread_t Threads[MAXBUF];
-	struct sockaddr_in server;
-
-struct sigaction new_sa;
-sigfillset(&new_sa.sa_mask);
-new_sa.sa_handler = SigActionHandler;
-new_sa.sa_flags = 0;
-
-if (sigaction(SIGINT, &new_sa, NULL)<0)
-{
-	ERR("SIGINT SIGACTION");
-}
-		if(argc!=2) 
+		if(0==temp)
 		{
-			usage(argv[0]);
-			return EXIT_FAILURE;
+			fprintf(stderr,"DEBUG: Preparing to Start Op\n");
+			ts[(*ti)++] = StartOperation(sendfd,listenfd,address,fdata,fkind,fid,&trarg);
 		}
-		OperationSaver = fopen(savefile,"a+");
-		fclose(OperationSaver);
-	OperationSaver = fopen(savefile,"r+");
-	memset(&server,0,sizeof(struct sockaddr_in));
-	pthread_mutex_init(&SuperMutex,NULL);
-		pthread_mutex_init(&MessageMutex,NULL);
-	//	pthread_mutex_init(&opID,NULL);
-		pthread_mutex_init(&GateMutex,NULL);
-		WaitOnGate();
-		WaitOnSuper();
-	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
-	sendfd = makesocket(SOCK_DGRAM,0);
-	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
-	if(listenport == 0)
-	{
-		ERR("PORT:");
 	}
+}
+void MenuWork(int sendfd,int listenfd,struct sockaddr_in server)
+{
+	int ti;
+	struct ThreadArg t;
+	pthread_t Threads[MAXBUF];
 	Threads[0] = StartListening(&listenfd);
 	ti=1;
 	RestoreOperations(sendfd,listenfd,server,Threads,&ti);
-	print_ip((long int)server.sin_addr.s_addr);
-	struct ThreadArg t;
 	while(doWork)
 	{
-		
 		char buf[MAXBUF];
 		fprintf(stdout,"Menu: DELETE DOWNLOAD LS UPLOAD\n");
 		scanf("%s",buf);
@@ -816,12 +723,48 @@ if (sigaction(SIGINT, &new_sa, NULL)<0)
 			Threads[ti++] = StartOperation(sendfd,listenfd,server,buf,'U',0,&t);
 		}
 	}
-		for(i=0;i<ti;i++) pthread_cancel(Threads[i]);
-		fclose(OperationSaver);
-		pthread_mutex_destroy(&SuperMutex);
-		pthread_mutex_destroy(&MessageMutex);
-	//	pthread_mutex_destroy(&opID);
-		pthread_mutex_destroy(&GateMutex);
-	return 0;
-	
+	for(i=0;i<ti;i++) pthread_cancel(Threads[i]);
+}
+int main(int argc,char** argv)
+{
+	int listenfd,broadcastfd,sendfd,i;
+	pthread_t Threads[MAXBUF];
+	struct sockaddr_in server;
+	struct sigaction new_sa;
+	sigfillset(&new_sa.sa_mask);
+	new_sa.sa_handler = SigActionHandler;
+	new_sa.sa_flags = 0;
+	if (sigaction(SIGINT, &new_sa, NULL)<0)
+	{
+		ERR("SIGINT SIGACTION");
+	}
+	if(argc!=2) 
+	{
+		usage(argv[0]);
+		return EXIT_FAILURE;
+	}
+	OperationSaver = fopen(savefile,"a+");
+	fclose(OperationSaver);
+	OperationSaver = fopen(savefile,"r+");
+	memset(&server,0,sizeof(struct sockaddr_in));
+	pthread_mutex_init(&SuperMutex,NULL);
+	pthread_mutex_init(&OperationSaveMutex,NULL);
+	pthread_mutex_init(&MessageMutex,NULL);
+	pthread_mutex_init(&GateMutex,NULL);
+	WaitOnGate();
+	WaitOnSuper();
+	broadcastfd=makesocket(SOCK_DGRAM,SO_BROADCAST);
+	sendfd = makesocket(SOCK_DGRAM,0);
+	listenfd = DiscoverAddress(broadcastfd,atoi(argv[1]),&server);
+	if(listenport == 0)
+	{
+		ERR("PORT:");
+	}	
+	print_ip((long int)server.sin_addr.s_addr);	
+	fclose(OperationSaver);
+	pthread_mutex_destroy(&SuperMutex);
+	pthread_mutex_destroy(&MessageMutex);
+	pthread_mutex_destroy(&GateMutex);
+	pthread_mutex_destroy(&OperationSaveMutex);
+	return 0;	
 }
