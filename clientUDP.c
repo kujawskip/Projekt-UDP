@@ -33,7 +33,7 @@
 #define MD5_LEN 32
 #define savefile "savefile.dat"
 FILE* OperationSaver;
-volatile sigatomic_t doWork;
+volatile sig_atomic_t doWork;
 void SigActionHandler(int k)
 {
 	if(k==SIGINT) doWork=0;

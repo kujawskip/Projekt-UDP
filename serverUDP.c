@@ -30,7 +30,7 @@
 #define PATH_LEN 256
 #define MD5_LEN 32
 int minid;
-volatile sigatomic_t doWork;
+volatile sig_atomic_t doWork;
 void SigActionHandler(int k)
 {
 	if(k==SIGINT) doWork=0;
