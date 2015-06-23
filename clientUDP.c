@@ -515,7 +515,10 @@ void UploadFile(int sendfd,int listenfd,struct sockaddr_in server,char* FilePath
 	SendMessage(sendfd,m,server);
 	ReceiveMessage(listenfd,&m,&server,0,0);
 	if(restart==0) SaveOperation(m.id,'U',FilePath,0);
+	F = fopen(FilePath,"a+");
+	fclose(F);
 	F = fopen(FilePath,"r");
+	
 	if(m.Kind!='U')
 	{
 		fprintf(stderr,"Upload of file %s failed\n",FilePath); 
