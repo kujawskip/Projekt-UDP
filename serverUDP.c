@@ -126,11 +126,13 @@ pthread_mutex_t directorymutex;
 pthread_mutex_t filemutex[MAXDIR];
 void LockDirectory()
 {
+	fprintf(stderr,"Preparing to lock directory\n");
 	pthread_mutex_lock(&directorymutex);
 }
 void UnLockDirectory()
 {
 	pthread_mutex_unlock(&directorymutex);
+	fprintf(stderr,"Unlocking directory\n");
 }
 void LockFile(int id)
 {
@@ -360,6 +362,7 @@ ssize_t bulk_fread(FILE* fd,char* buf,size_t count)
 {
 	int c;
 	size_t len=0;
+	memset(buf,0,count);
 	do
 	{
 		
@@ -509,6 +512,7 @@ void DownloadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in ad
 }
 void AddFile(char* FileName)
 {
+	
 	LockDirectory();
 	files[DirLen].Op='N';
 	files[DirLen].perc=0;
@@ -530,8 +534,9 @@ void UploadFile(int sendfd,int listenfd,struct Message m,struct sockaddr_in addr
 	strcat(FilePath,DirectoryPath);
 	strcat(FilePath,"/");
 	strcat(FilePath,File);	
-	F = fopen(FilePath,"w+");
 	
+	F = fopen(FilePath,"w+");
+	fprintf(stderr,"DEBUG: Opened %s for write\n",FilePath);
 	AddFile(File);
 	while(1)
 	{
